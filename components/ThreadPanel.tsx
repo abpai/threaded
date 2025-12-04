@@ -1,131 +1,233 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { Send, X, Bot, User, Sparkles, ChevronLeft } from 'lucide-react';
-import { Thread } from '../types';
-import ReactMarkdown from 'react-markdown';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
-import rehypeHighlight from 'rehype-highlight';
+import React, { useRef, useEffect, useState, lazy, Suspense } from "react"
+import {
+  Send,
+  X,
+  Bot,
+  User,
+  Sparkles,
+  ChevronLeft,
+  Trash2,
+  RefreshCw,
+  AlertCircle,
+  Settings,
+} from "lucide-react"
+import { Thread } from "../types"
+
+const MarkdownRenderer = lazy(() => import("./MarkdownRenderer"))
 
 interface ThreadPanelProps {
-  thread: Thread | null;
-  isLoading: boolean;
-  onClose: () => void;
-  onBack: () => void;
-  onSendMessage: (text: string) => void;
+  thread: Thread | null
+  isLoading: boolean
+  onClose: () => void
+  onBack: () => void
+  onSendMessage: (text: string) => void
+  onDelete: () => void
+  onRetry?: () => void
+  onOpenSettings?: () => void
 }
 
-const ThreadPanel: React.FC<ThreadPanelProps> = ({ thread, isLoading, onClose, onBack, onSendMessage }) => {
-  const [inputValue, setInputValue] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+const isErrorMessage = (text: string): boolean => {
+  return text.startsWith("Error:")
+}
+
+const shouldShowSettingsButton = (text: string): boolean => {
+  const lowerText = text.toLowerCase()
+  return (
+    lowerText.includes("settings") || lowerText.includes("api key") || lowerText.includes("model")
+  )
+}
+
+const ThreadPanel: React.FC<ThreadPanelProps> = ({
+  thread,
+  isLoading,
+  onClose,
+  onBack,
+  onSendMessage,
+  onDelete,
+  onRetry,
+  onOpenSettings,
+}) => {
+  const [inputValue, setInputValue] = useState("")
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
 
   useEffect(() => {
-    scrollToBottom();
-  }, [thread?.messages, isLoading]);
+    scrollToBottom()
+  }, [thread?.messages, isLoading])
 
   useEffect(() => {
     if (thread?.id) {
-        // Focus input when a new thread is selected/created
-        setTimeout(() => inputRef.current?.focus(), 100);
+      setTimeout(() => inputRef.current?.focus(), 100)
     }
-  }, [thread?.id]);
+  }, [thread?.id])
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputValue.trim() || isLoading) return;
-    onSendMessage(inputValue);
-    setInputValue('');
-  };
-
-  if (!thread) {
-    return null;
+    e.preventDefault()
+    if (!inputValue.trim() || isLoading) return
+    onSendMessage(inputValue)
+    setInputValue("")
   }
 
-  const isGeneralThread = thread.context === 'Entire Document';
+  if (!thread) {
+    return null
+  }
+
+  const isGeneralThread = thread.context === "Entire Document"
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-slate-900 transition-colors duration-300">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm z-10 sticky top-0">
         <div className="flex items-center gap-3">
-            <button 
-                onClick={onBack}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 transition-colors group"
-                title="Back to all threads"
-            >
-                <ChevronLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
-            </button>
-            <div>
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100 leading-tight">Thread</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[200px]">
-                    {isGeneralThread ? 'General Discussion' : `Re: ${thread.snippet}`}
-                </p>
-            </div>
+          <button
+            onClick={onBack}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 transition-colors group"
+            title="Back to all threads"
+          >
+            <ChevronLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
+          </button>
+          <div>
+            <h3 className="font-semibold text-slate-800 dark:text-slate-100 leading-tight">
+              Thread
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[200px]">
+              {isGeneralThread ? "General Discussion" : `Re: ${thread.snippet}`}
+            </p>
+          </div>
         </div>
-        <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 transition-colors">
-          <X size={20} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onDelete}
+            className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 transition-colors"
+            title="Delete thread"
+          >
+            <Trash2 size={18} />
+          </button>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
       </div>
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-slate-50/50 dark:bg-slate-950/50">
         {/* Context Card - Only show if not a general thread */}
         {!isGeneralThread && (
-            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 shadow-sm text-sm relative">
-                <div className="absolute -left-3 top-4 w-3 h-px bg-slate-200 dark:bg-slate-700"></div>
-                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Selected Context</p>
-                <blockquote className="text-slate-600 dark:text-slate-300 italic border-l-2 border-blue-400 pl-3">
-                    "{thread.context}"
-                </blockquote>
-            </div>
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 shadow-sm text-sm relative">
+            <div className="absolute -left-3 top-4 w-3 h-px bg-slate-200 dark:bg-slate-700"></div>
+            <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+              Selected Context
+            </p>
+            <blockquote className="text-slate-600 dark:text-slate-300 italic border-l-2 border-blue-400 pl-3">
+              "{thread.context}"
+            </blockquote>
+          </div>
         )}
 
-        {thread.messages.map((msg, index) => (
-          <div
-            key={index}
-            className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-          >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-              msg.role === 'user' ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-            }`}>
-              {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
-            </div>
-            <div className={`max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed shadow-sm overflow-hidden ${
-              msg.role === 'user' 
-                ? 'bg-slate-800 dark:bg-slate-700 text-white rounded-tr-none' 
-                : 'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-tl-none markdown-chat'
-            }`}>
-                {msg.role === 'user' ? (
-                    msg.text
+        {thread.messages.map((msg, index) => {
+          const isError = msg.role === "model" && isErrorMessage(msg.text)
+          const isLastMessage = index === thread.messages.length - 1
+
+          if (isLastMessage && isLoading && msg.role === "model" && !msg.text) {
+            return null
+          }
+
+          return (
+            <div
+              key={index}
+              className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+            >
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                  msg.role === "user"
+                    ? "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200"
+                    : isError
+                      ? "bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400"
+                      : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                }`}
+              >
+                {msg.role === "user" ? (
+                  <User size={16} />
+                ) : isError ? (
+                  <AlertCircle size={16} />
                 ) : (
-                    <div className="markdown-content !text-sm">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkMath]}
-                        rehypePlugins={[rehypeKatex, rehypeHighlight]}
-                      >
-                          {msg.text}
-                      </ReactMarkdown>
-                    </div>
+                  <Bot size={16} />
                 )}
+              </div>
+              <div className="flex flex-col gap-2 max-w-[85%]">
+                <div
+                  className={`rounded-2xl p-3 text-sm leading-relaxed shadow-sm overflow-hidden ${
+                    msg.role === "user"
+                      ? "bg-slate-800 dark:bg-slate-700 text-white rounded-tr-none"
+                      : isError
+                        ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-tl-none"
+                        : "bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-tl-none markdown-chat"
+                  }`}
+                >
+                  {msg.role === "user" ? (
+                    msg.text
+                  ) : isError ? (
+                    <span>{msg.text.replace("Error: ", "")}</span>
+                  ) : (
+                    <Suspense fallback={<span className="text-slate-400">...</span>}>
+                      <MarkdownRenderer content={msg.text} className="markdown-content !text-sm" />
+                    </Suspense>
+                  )}
+                </div>
+                {isError && isLastMessage && (
+                  <div className="flex items-center gap-3 self-start">
+                    {onRetry && (
+                      <button
+                        onClick={onRetry}
+                        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors"
+                      >
+                        <RefreshCw size={12} />
+                        <span>Retry</span>
+                      </button>
+                    )}
+                    {onOpenSettings && shouldShowSettingsButton(msg.text) && (
+                      <button
+                        onClick={onOpenSettings}
+                        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors"
+                      >
+                        <Settings size={12} />
+                        <span>Open Settings</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+
+        {isLoading && (
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 animate-pulse">
+              <Sparkles size={16} />
+            </div>
+            <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-3 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-1">
+              <div
+                className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"
+                style={{ animationDelay: "0ms" }}
+              ></div>
+              <div
+                className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"
+                style={{ animationDelay: "150ms" }}
+              ></div>
+              <div
+                className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"
+                style={{ animationDelay: "300ms" }}
+              ></div>
             </div>
           </div>
-        ))}
-        
-        {isLoading && (
-           <div className="flex gap-3">
-             <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 animate-pulse">
-                <Sparkles size={16} />
-             </div>
-             <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-3 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-1">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms'}}></div>
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms'}}></div>
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms'}}></div>
-             </div>
-           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
@@ -137,7 +239,7 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({ thread, isLoading, onClose, o
             ref={inputRef}
             type="text"
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onChange={e => setInputValue(e.target.value)}
             placeholder={isGeneralThread ? "Ask about the document..." : "Ask a follow-up..."}
             className="w-full pl-4 pr-12 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
           />
@@ -151,7 +253,7 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({ thread, isLoading, onClose, o
         </form>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default ThreadPanel;
+export default ThreadPanel
