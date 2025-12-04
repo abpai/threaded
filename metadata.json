@@ -1,0 +1,5 @@
+{
+  "name": "Threaded - Contextual AI Reader",
+  "description": "A Medium-style reading interface that allows you to branch off into side-conversations with AI by highlighting specific text sections.",
+  "requestFramePermissions": []
+}
