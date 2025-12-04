@@ -1,151 +1,212 @@
-import { GoogleGenAI } from "@google/genai";
-import { Message, AppSettings } from "../types";
+import { streamText } from "ai"
+import { createOpenAI } from "@ai-sdk/openai"
+import { createAnthropic } from "@ai-sdk/anthropic"
+import { createGoogleGenerativeAI } from "@ai-sdk/google"
+import { Message, AppSettings } from "../types"
+import { getSystemPrompt } from "./prompts"
 
-export const generateThreadResponse = async (
+export type ThreadMode = "discuss" | "explain"
+
+export interface AIError {
+  type: "no_key" | "invalid_key" | "invalid_model" | "rate_limit" | "network" | "unknown"
+  message: string
+  canRetry: boolean
+  shouldOpenSettings: boolean
+}
+
+function getModel(settings: AppSettings) {
+  const modelId = settings.modelId
+
+  switch (settings.provider) {
+    case "openai": {
+      const openai = createOpenAI({
+        apiKey: settings.apiKey,
+        baseURL: settings.baseUrl || undefined,
+      })
+      return openai(modelId || "gpt-4o")
+    }
+    case "ollama": {
+      const openai = createOpenAI({
+        apiKey: "ollama", // Required but ignored by Ollama
+        baseURL: settings.baseUrl || "http://localhost:11434/v1",
+      })
+      return openai(modelId || "llama3.2")
+    }
+    case "anthropic": {
+      const anthropic = createAnthropic({
+        apiKey: settings.apiKey,
+        headers: {
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+      })
+      return anthropic(modelId || "claude-3-5-sonnet-latest")
+    }
+    case "google": {
+      const google = createGoogleGenerativeAI({
+        apiKey: settings.apiKey,
+      })
+      return google(modelId || "gemini-1.5-flash")
+    }
+    default:
+      throw new Error("Provider not supported")
+  }
+}
+
+function formatMessages(
+  history: Message[],
+  newMessage: string
+): Array<{ role: "user" | "assistant"; content: string }> {
+  const historyForChat = history.filter((msg, index) => {
+    if (index === history.length - 1 && msg.role === "user" && msg.text === newMessage) {
+      return false
+    }
+    return true
+  })
+
+  const messages: Array<{ role: "user" | "assistant"; content: string }> = historyForChat.map(
+    msg => ({
+      role: (msg.role === "user" ? "user" : "assistant") as "user" | "assistant",
+      content: msg.text,
+    })
+  )
+
+  messages.push({ role: "user" as const, content: newMessage })
+
+  return messages
+}
+
+function parseError(error: unknown): AIError {
+  const errorMessage = error instanceof Error ? error.message : String(error)
+  const lowerMessage = errorMessage.toLowerCase()
+
+  if (
+    lowerMessage.includes("api key") ||
+    lowerMessage.includes("apikey") ||
+    lowerMessage.includes("unauthorized") ||
+    lowerMessage.includes("401") ||
+    lowerMessage.includes("invalid x-goog-api-key")
+  ) {
+    return {
+      type: "invalid_key",
+      message: "Your API key is invalid. Please check Settings.",
+      canRetry: false,
+      shouldOpenSettings: true,
+    }
+  }
+
+  if (
+    lowerMessage.includes("is not found") ||
+    lowerMessage.includes("not supported") ||
+    lowerMessage.includes("invalid model") ||
+    lowerMessage.includes("does not exist") ||
+    lowerMessage.includes("model not found")
+  ) {
+    return {
+      type: "invalid_model",
+      message: "Model not found. Please check your model name in Settings.",
+      canRetry: false,
+      shouldOpenSettings: true,
+    }
+  }
+
+  if (
+    lowerMessage.includes("rate limit") ||
+    lowerMessage.includes("429") ||
+    lowerMessage.includes("quota")
+  ) {
+    return {
+      type: "rate_limit",
+      message: "Rate limit reached. Please wait a moment and try again.",
+      canRetry: true,
+      shouldOpenSettings: false,
+    }
+  }
+
+  if (
+    lowerMessage.includes("network") ||
+    lowerMessage.includes("fetch") ||
+    lowerMessage.includes("connection") ||
+    lowerMessage.includes("cors")
+  ) {
+    return {
+      type: "network",
+      message: "Network error. Check your connection and try again.",
+      canRetry: true,
+      shouldOpenSettings: false,
+    }
+  }
+
+  return {
+    type: "unknown",
+    message: errorMessage || "An unexpected error occurred.",
+    canRetry: true,
+    shouldOpenSettings: false,
+  }
+}
+
+export async function* streamThreadResponse(
   context: string,
   fullDocument: string,
   history: Message[],
   newMessage: string,
-  settings: AppSettings
-): Promise<string> => {
-  try {
-    // 1. Construct the System Prompt
-    let systemInstruction = '';
-    const isGeneral = context === 'Entire Document';
-
-    if (isGeneral) {
-        systemInstruction = `You are a helpful reading assistant. 
-        The user is reading a document and has some general questions about it.
-        
-        FULL DOCUMENT CONTENT:
-        """
-        ${fullDocument.substring(0, 30000)} ... (truncated if too long)
-        """
-
-        Answer the user's questions based on the document above. Be concise, insightful, and conversational.
-        `;
-    } else {
-        systemInstruction = `You are a helpful reading assistant. 
-        The user is reading a document and has highlighted a specific section to discuss with you.
-        
-        FULL DOCUMENT CONTEXT (Use for background knowledge only):
-        """
-        ${fullDocument.substring(0, 20000)} ... (truncated if too long)
-        """
-
-        SPECIFIC HIGHLIGHTED CONTEXT (Focus your answer on this):
-        """
-        ${context}
-        """
-
-        Answer the user's questions specifically about the highlighted context. Be concise, insightful, and conversational.
-        `;
-    }
-
-    // 2. Prepare History
-    // Filter out the last message if it's the same as the new one (UI optimism handling)
-    const historyForChat = history.filter((msg, index) => {
-        if (index === history.length - 1 && msg.role === 'user' && msg.text === newMessage) {
-            return false;
-        }
-        return true;
-    });
-
-    // --- GOOGLE GEMINI ---
-    if (settings.provider === 'google') {
-        const ai = new GoogleGenAI({ apiKey: settings.apiKey });
-        const model = ai.models.getGenerativeModel({ 
-            model: settings.modelId || 'gemini-1.5-flash',
-            systemInstruction
-        });
-
-        const chat = model.startChat({
-            history: historyForChat.map(msg => ({
-                role: msg.role === 'user' ? 'user' : 'model',
-                parts: [{ text: msg.text }]
-            }))
-        });
-
-        const result = await chat.sendMessage(newMessage);
-        return result.response.text();
-    }
-
-    // --- OPENAI ---
-    if (settings.provider === 'openai') {
-        const messages = [
-            { role: 'system', content: systemInstruction },
-            ...historyForChat.map(msg => ({
-                role: msg.role === 'user' ? 'user' : 'assistant',
-                content: msg.text
-            })),
-            { role: 'user', content: newMessage }
-        ];
-
-        const response = await fetch(`${settings.baseUrl || 'https://api.openai.com/v1'}/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${settings.apiKey}`
-            },
-            body: JSON.stringify({
-                model: settings.modelId || 'gpt-4o',
-                messages: messages
-            })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || 'OpenAI API Error');
-        }
-
-        const data = await response.json();
-        return data.choices[0]?.message?.content || "No response content.";
-    }
-
-    // --- ANTHROPIC ---
-    if (settings.provider === 'anthropic') {
-        // Note: Anthropic calls from browser often require a proxy due to CORS. 
-        // We will attempt a direct call, but this may fail depending on browser policies and Anthropic settings.
-        const messages = [
-            ...historyForChat.map(msg => ({
-                role: msg.role === 'user' ? 'user' : 'assistant',
-                content: msg.text
-            })),
-            { role: 'user', content: newMessage }
-        ];
-
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'x-api-key': settings.apiKey,
-                'anthropic-version': '2023-06-01',
-                'content-type': 'application/json',
-                'anthropic-dangerous-direct-browser-access': 'true' // Required for browser calls
-            },
-            body: JSON.stringify({
-                model: settings.modelId || 'claude-3-haiku-20240307',
-                max_tokens: 1024,
-                system: systemInstruction,
-                messages: messages
-            })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || 'Anthropic API Error');
-        }
-
-        const data = await response.json();
-        return data.content[0]?.text || "No response content.";
-    }
-
-    return "Provider not supported.";
-
-  } catch (error) {
-    console.error("AI Service Error:", error);
-    if (error instanceof Error) {
-        return `Error: ${error.message}`;
-    }
-    return "Sorry, I encountered an error while communicating with the AI.";
+  settings: AppSettings,
+  mode: ThreadMode = "discuss"
+): AsyncGenerator<string, void, unknown> {
+  if (!settings.apiKey && settings.provider !== "ollama") {
+    throw {
+      type: "no_key",
+      message: "Please add your API key in Settings.",
+      canRetry: false,
+      shouldOpenSettings: true,
+    } as AIError
   }
-};
+
+  try {
+    const model = getModel(settings)
+    const systemPrompt = getSystemPrompt(context, fullDocument, mode)
+    const messages = formatMessages(history, newMessage)
+
+    const result = streamText({
+      model,
+      system: systemPrompt,
+      messages,
+    })
+
+    for await (const chunk of result.textStream) {
+      yield chunk
+    }
+  } catch (error) {
+    console.error("AI Service Error:", error)
+    throw parseError(error)
+  }
+}
+
+export async function generateThreadResponse(
+  context: string,
+  fullDocument: string,
+  history: Message[],
+  newMessage: string,
+  settings: AppSettings,
+  mode: ThreadMode = "discuss"
+): Promise<string> {
+  let result = ""
+
+  try {
+    for await (const chunk of streamThreadResponse(
+      context,
+      fullDocument,
+      history,
+      newMessage,
+      settings,
+      mode
+    )) {
+      result += chunk
+    }
+    return result
+  } catch (error) {
+    if ((error as AIError).type) {
+      return `Error: ${(error as AIError).message}`
+    }
+    return "Sorry, I encountered an error while communicating with the AI."
+  }
+}
