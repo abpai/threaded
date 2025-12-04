@@ -1,0 +1,12 @@
+name = "threaded-reader"
+main = "worker.ts"
+compatibility_date = "2025-12-04"
+compatibility_flags = ["nodejs_compat"]
+
+[build]
+command = "npm run build"
+
+[assets]
+directory = "dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
