@@ -25,18 +25,18 @@ const ThreadList: React.FC<ThreadListProps> = ({ threads, onSelectThread, onClos
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+    <div className="flex flex-col h-full bg-slate-50 dark:bg-neutral-950 transition-colors duration-300">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+      <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
         <div>
-          <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Discussions</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <h3 className="font-bold text-slate-800 dark:text-neutral-100 text-lg">Discussions</h3>
+          <p className="text-xs text-slate-500 dark:text-neutral-400">
             {threads.length} active threads
           </p>
         </div>
         <button
           onClick={onClose}
-          className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 transition-colors"
+          className="p-2 hover:bg-slate-100 dark:hover:bg-neutral-800 rounded-full text-slate-500 dark:text-neutral-400 transition-colors"
         >
           <X size={20} />
         </button>
@@ -45,8 +45,8 @@ const ThreadList: React.FC<ThreadListProps> = ({ threads, onSelectThread, onClos
       {/* List Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {sortedThreads.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 text-center">
-            <MessageSquare size={48} className="mb-4 text-slate-300 dark:text-slate-600" />
+          <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-neutral-500 text-center">
+            <MessageSquare size={48} className="mb-4 text-slate-300 dark:text-neutral-600" />
             <p>No active threads yet.</p>
             <p className="text-sm mt-2">Highlight text or ask a general question to start.</p>
           </div>
@@ -61,7 +61,7 @@ const ThreadList: React.FC<ThreadListProps> = ({ threads, onSelectThread, onClos
               <button
                 key={thread.id}
                 onClick={() => onSelectThread(thread.id)}
-                className="w-full text-left bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
+                className="w-full text-left bg-white dark:bg-neutral-900 p-4 rounded-xl border border-slate-200 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -70,23 +70,23 @@ const ThreadList: React.FC<ThreadListProps> = ({ threads, onSelectThread, onClos
                     >
                       {isGeneral ? <FileText size={14} /> : <MessageSquare size={14} />}
                     </span>
-                    <span className="font-semibold text-slate-700 dark:text-slate-200 text-sm truncate max-w-[180px]">
+                    <span className="font-semibold text-slate-700 dark:text-neutral-200 text-sm truncate max-w-[180px]">
                       {thread.snippet}
                     </span>
                   </div>
-                  <div className="flex items-center text-xs text-slate-400 dark:text-slate-500">
+                  <div className="flex items-center text-xs text-slate-400 dark:text-neutral-500">
                     <Clock size={10} className="mr-1" />
                     {getTimeString(lastMessage?.timestamp || thread.createdAt)}
                   </div>
                 </div>
 
-                <div className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed mb-3 h-[2.5em]">
+                <div className="text-sm text-slate-600 dark:text-neutral-400 line-clamp-2 leading-relaxed mb-3 h-[2.5em]">
                   {lastMessage ? (
                     <span
                       className={
                         lastMessage.role === "user"
-                          ? "text-slate-500 dark:text-slate-500"
-                          : "text-slate-800 dark:text-slate-300"
+                          ? "text-slate-500 dark:text-neutral-500"
+                          : "text-slate-800 dark:text-neutral-300"
                       }
                     >
                       {lastMessage.role === "user" ? "You: " : "AI: "}

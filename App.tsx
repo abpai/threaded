@@ -1,197 +1,238 @@
 import {
   AlertCircle,
   ArrowRight,
+  Bookmark,
   Download,
-  LayoutTemplate,
+  History,
+  Loader2,
   MessageCircle,
   Moon,
+  MoreHorizontal,
   PenTool,
   Settings as SettingsIcon,
+  Share,
   Sun,
+  Trash2,
 } from "lucide-react"
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 
 const MarkdownRenderer = lazy(() => import("./components/MarkdownRenderer"))
 
+import Dialog, { DialogState } from "./components/Dialog"
+import HistoryPanel from "./components/HistoryPanel"
+import QuotesView from "./components/QuotesView"
 import SettingsModal from "./components/SettingsModal"
+import SharedBanner from "./components/SharedBanner"
+import StartView from "./components/StartView"
 import ThreadList from "./components/ThreadList"
 import ThreadPanel from "./components/ThreadPanel"
 import Tooltip from "./components/Tooltip"
-import { AIError, streamThreadResponse } from "./services/aiService"
-import { loadSession, saveSession } from "./services/storage"
-import { AppSettings, TextSelection, Thread, ViewState } from "./types"
 
-const DEFAULT_TEXT = ``
+import { useSession, createNewSession } from "./hooks/useSession"
+import { useDarkMode } from "./hooks/useDarkMode"
+import { useSettings } from "./hooks/useSettings"
+import { useQuotes } from "./hooks/useQuotes"
+import { useThreadManager } from "./hooks/useThreadManager"
+import { useTextSelection } from "./hooks/useTextSelection"
+import { useAiStreaming } from "./hooks/useAiStreaming"
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts"
 
-const DEFAULT_SETTINGS: AppSettings = {
-  provider: "google",
-  apiKey: "",
-  modelId: "gemini-3-pro",
+import {
+  getHistory,
+  addToHistory,
+  removeFromHistory,
+  updateHistoryEntry,
+  getCurrentSessionId,
+  setCurrentSessionId,
+  extractTitle,
+} from "./services/sessionHistory"
+import { generateSessionSummary } from "./services/aiService"
+import { Thread, ViewState, SourceMetadata, SessionMeta } from "./types"
+
+function getSessionIdFromUrl(): string | null {
+  const path = window.location.pathname
+  const match = path.match(/^\/([a-zA-Z0-9_-]{10,})$/)
+  return match ? match[1] : null
 }
 
 const App: React.FC = () => {
-  const [viewState, setViewState] = useState<ViewState>(ViewState.START)
-  const [markdownContent, setMarkdownContent] = useState(DEFAULT_TEXT)
-  const [selection, setSelection] = useState<TextSelection | null>(null)
-  const [threads, setThreads] = useState<Thread[]>([])
-
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const stored = localStorage.getItem("threaded-dark-mode")
-    if (stored !== null) {
-      return stored === "true"
-    }
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
+  // URL is the single source of truth for session identity
+  const [sessionId, setSessionId] = useState<string | null>(() => getSessionIdFromUrl())
+  const session = useSession(sessionId, {
+    onSessionChange: setSessionId,
   })
+  const [showSharedBanner, setShowSharedBanner] = useState(true)
+
+  // View state
+  const [viewState, setViewState] = useState<ViewState>(ViewState.START)
+  const [markdownContent, setMarkdownContent] = useState("")
+  const [sourceMetadata, setSourceMetadata] = useState<SourceMetadata | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
-
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-
-  const [isAiLoading, setIsAiLoading] = useState(false)
   const [generalInputValue, setGeneralInputValue] = useState("")
-
+  const [isCreatingSession, setIsCreatingSession] = useState(false)
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [dialog, setDialog] = useState<DialogState>({
+    isOpen: false,
+    type: "alert",
+    title: "",
+    message: "",
+  })
+  const moreMenuRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const [isSessionLoaded, setIsSessionLoaded] = useState(false)
 
-  useEffect(() => {
-    const storedSettings = localStorage.getItem("threaded-settings")
-    if (storedSettings) {
-      try {
-        setSettings(JSON.parse(storedSettings))
-      } catch (e) {
-        console.error("Failed to parse settings", e)
+  // Session history from localStorage (just metadata for display)
+  const [sessionHistory, setSessionHistory] = useState<SessionMeta[]>([])
+
+  // Extracted hooks
+  const { isDarkMode, toggleDarkMode } = useDarkMode()
+  const { settings, isSettingsOpen, openSettings, closeSettings, saveSettings } = useSettings()
+  const { quotes, addQuote, deleteQuote, setQuotes } = useQuotes()
+  const threadManager = useThreadManager()
+  const { selection, clearSelection } = useTextSelection(
+    contentRef,
+    viewState === ViewState.READING
+  )
+  const { isLoading: isAiLoading, streamResponse } = useAiStreaming(
+    settings,
+    threadManager,
+    session
+  )
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onEscape: () => {
+      if (selection) {
+        clearSelection()
+      } else if (isSidebarOpen) {
+        setIsSidebarOpen(false)
       }
-    }
+    },
+    onOpenSettings: openSettings,
+  })
+
+  // Load session history from localStorage on mount
+  useEffect(() => {
+    setSessionHistory(getHistory())
   }, [])
 
+  // Load session from API when sessionId changes
   useEffect(() => {
-    const load = async () => {
-      const session = await loadSession()
-      if (session) {
-        setMarkdownContent(session.document)
-        setThreads(session.threads)
-        if (session.threads.length > 0) {
-          setViewState(ViewState.READING)
-        }
-      }
-      setIsSessionLoaded(true)
-    }
-    load()
-  }, [])
+    if (sessionId && session.session && !session.isLoading) {
+      const apiThreads: Thread[] = session.session.threads.map(t => ({
+        id: t.id,
+        context: t.context,
+        snippet: t.snippet,
+        createdAt: t.createdAt,
+        messages: t.messages.map(m => ({
+          role: m.role,
+          text: m.text,
+          timestamp: m.timestamp,
+        })),
+      }))
 
-  const debouncedSave = useCallback((document: string, threads: Thread[]) => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current)
-    }
-    saveTimeoutRef.current = setTimeout(() => {
-      saveSession(document, threads)
-    }, 500)
-  }, [])
-
-  useEffect(() => {
-    if (isSessionLoaded) {
-      debouncedSave(markdownContent, threads)
-    }
-  }, [markdownContent, threads, isSessionLoaded, debouncedSave])
-
-  const handleSaveSettings = (newSettings: AppSettings) => {
-    setSettings(newSettings)
-    localStorage.setItem("threaded-settings", JSON.stringify(newSettings))
-  }
-
-  useEffect(() => {
-    localStorage.setItem("threaded-dark-mode", String(isDarkMode))
-    if (isDarkMode) {
-      document.documentElement.classList.add("dark")
-    } else {
-      document.documentElement.classList.remove("dark")
-    }
-  }, [isDarkMode])
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (selection) {
-          setSelection(null)
-          window.getSelection()?.removeAllRanges()
-        } else if (isSidebarOpen) {
-          setIsSidebarOpen(false)
-        }
-        return
-      }
-
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault()
-        setIsSettingsOpen(true)
-        return
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyDown)
-    return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [selection, isSidebarOpen])
-
-  useEffect(() => {
-    const handleSelectionChange = () => {
-      if (viewState !== ViewState.READING) return
-
-      const currentSelection = window.getSelection()
-
-      if (
-        !currentSelection ||
-        currentSelection.isCollapsed ||
-        !contentRef.current?.contains(currentSelection.anchorNode)
-      ) {
-        return
-      }
-
-      const text = currentSelection.toString().trim()
-      if (text.length > 0) {
-        const range = currentSelection.getRangeAt(0)
-        const rect = range.getBoundingClientRect()
-        setSelection({ text, rect })
-      }
-    }
-
-    document.addEventListener("mouseup", handleSelectionChange)
-    document.addEventListener("keyup", handleSelectionChange)
-
-    return () => {
-      document.removeEventListener("mouseup", handleSelectionChange)
-      document.removeEventListener("keyup", handleSelectionChange)
-    }
-  }, [viewState])
-
-  const handleStart = () => {
-    if (markdownContent.trim()) {
+      setMarkdownContent(session.session.markdownContent)
+      threadManager.setThreads(apiThreads)
       setViewState(ViewState.READING)
-    }
-  }
 
+      // Add to history when session loads
+      if (sessionId) {
+        const entry: SessionMeta = {
+          id: sessionId,
+          title: extractTitle(session.session.markdownContent),
+          summary: null,
+          lastModified: Date.now(),
+        }
+        addToHistory(entry)
+        setSessionHistory(getHistory())
+        setCurrentSessionId(sessionId)
+
+        // Generate summary in background if needed
+        const existing = getHistory().find(h => h.id === sessionId)
+        if (!existing?.summary && (settings.apiKey || settings.provider === "ollama")) {
+          generateSessionSummary(session.session.markdownContent, settings).then(summary => {
+            if (summary) {
+              updateHistoryEntry(sessionId, { summary })
+              setSessionHistory(getHistory())
+            }
+          })
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.session, session.isLoading, sessionId])
+
+  // Handle popstate (back/forward navigation)
+  useEffect(() => {
+    const handlePopState = () => {
+      const newSessionId = getSessionIdFromUrl()
+      setSessionId(newSessionId)
+      if (!newSessionId) {
+        setViewState(ViewState.START)
+        setMarkdownContent("")
+        threadManager.setThreads([])
+        setQuotes([])
+      }
+    }
+    window.addEventListener("popstate", handlePopState)
+    return () => window.removeEventListener("popstate", handlePopState)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // On mount, check if we should restore last session
+  useEffect(() => {
+    if (sessionId) return // Already have a session from URL
+
+    const lastSessionId = getCurrentSessionId()
+    if (lastSessionId) {
+      // Navigate to last session
+      window.history.replaceState(null, "", `/${lastSessionId}`)
+      setSessionId(lastSessionId)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Close more menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false)
+      }
+    }
+    if (showMoreMenu) {
+      document.addEventListener("mousedown", handleClickOutside)
+      return () => document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [showMoreMenu])
+
+  // Event handlers
   const handleDocumentMouseDown = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement
     if (!target.closest("button") && !target.closest("input")) {
-      setSelection(null)
-      window.getSelection()?.removeAllRanges()
+      clearSelection()
     }
   }
 
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode)
-  }
-
   const handleExport = () => {
-    let exportText = markdownContent + "\n\n# Discussions (Exported)\n\n"
-    threads.forEach(t => {
-      exportText += `## Thread: ${t.snippet}\n`
-      exportText += `> **Context**: ${t.context}\n\n`
-      t.messages.forEach(m => {
-        exportText += `**${m.role === "user" ? "User" : "AI"}**: ${m.text}\n\n`
+    let exportText = markdownContent
+
+    if (quotes.length > 0) {
+      exportText += "\n\n---\n\n# Saved Quotes\n\n"
+      quotes.forEach(q => {
+        exportText += `> "${q.text}"\n\n`
       })
-      exportText += "---\n\n"
-    })
+    }
+
+    if (threadManager.threads.length > 0) {
+      exportText += "\n\n---\n\n# Discussions\n\n"
+      threadManager.threads.forEach(t => {
+        exportText += `## Thread: ${t.snippet}\n`
+        exportText += `> **Context**: ${t.context}\n\n`
+        t.messages.forEach(m => {
+          exportText += `**${m.role === "user" ? "User" : "AI"}**: ${m.text}\n\n`
+        })
+        exportText += "---\n\n"
+      })
+    }
 
     const blob = new Blob([exportText], { type: "text/markdown" })
     const url = URL.createObjectURL(blob)
@@ -202,6 +243,134 @@ const App: React.FC = () => {
     URL.revokeObjectURL(url)
   }
 
+  // New session: navigate to / and clear state
+  const handleNewSession = useCallback(() => {
+    window.history.pushState(null, "", "/")
+    setSessionId(null)
+    setCurrentSessionId(null)
+    setMarkdownContent("")
+    threadManager.setThreads([])
+    setQuotes([])
+    setSourceMetadata(null)
+    setViewState(ViewState.START)
+  }, [threadManager, setQuotes])
+
+  // Content ready: create via API, then navigate
+  const handleContentReady = useCallback(async (content: string, source?: SourceMetadata) => {
+    setIsCreatingSession(true)
+    try {
+      const result = await createNewSession(content)
+      if (result) {
+        window.history.pushState(null, "", `/${result.sessionId}`)
+        setSessionId(result.sessionId)
+        setSourceMetadata(source || null)
+        // useSession will load the session and add to history
+      }
+    } finally {
+      setIsCreatingSession(false)
+    }
+  }, [])
+
+  // Select from history: navigate to session URL
+  const handleSelectSession = useCallback((id: string) => {
+    window.history.pushState(null, "", `/${id}`)
+    setSessionId(id)
+    // useSession handles loading, which triggers the effect that sets view state
+  }, [])
+
+  // Delete session from history
+  const handleDeleteFromHistory = useCallback(
+    async (id: string) => {
+      // If it's the current session, also delete from API
+      if (id === sessionId && session.isOwner) {
+        await session.deleteSession()
+      }
+
+      removeFromHistory(id)
+      setSessionHistory(getHistory())
+
+      // If we deleted the current session, go to start
+      if (id === sessionId) {
+        handleNewSession()
+      }
+    },
+    [sessionId, session, handleNewSession]
+  )
+
+  // Share: copy link or create session first
+  const handleShare = async () => {
+    let shareSessionId = sessionId
+
+    if (!shareSessionId) {
+      if (!markdownContent.trim()) {
+        setDialog({
+          isOpen: true,
+          type: "error",
+          title: "Cannot Share",
+          message: "No content to share. Please add some content first.",
+        })
+        return
+      }
+
+      setIsCreatingSession(true)
+      try {
+        const result = await createNewSession(markdownContent)
+        if (!result) {
+          setDialog({
+            isOpen: true,
+            type: "error",
+            title: "Share Failed",
+            message: "Failed to create shareable link. Please try again.",
+          })
+          return
+        }
+
+        shareSessionId = result.sessionId
+        setSessionId(shareSessionId)
+        window.history.pushState(null, "", `/${shareSessionId}`)
+      } finally {
+        setIsCreatingSession(false)
+      }
+    }
+
+    const shareUrl = `${window.location.origin}/${shareSessionId}`
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setDialog({
+        isOpen: true,
+        type: "success",
+        title: "Link Copied",
+        message: `Share URL copied to clipboard: ${shareUrl}`,
+      })
+    } catch {
+      prompt("Copy this link:", shareUrl)
+    }
+  }
+
+  // Delete current session (owner only)
+  const executeDeleteSession = useCallback(async () => {
+    if (!sessionId || !session.isOwner) return
+
+    const success = await session.deleteSession()
+    if (success) {
+      removeFromHistory(sessionId)
+      setSessionHistory(getHistory())
+      handleNewSession()
+    }
+  }, [sessionId, session, handleNewSession])
+
+  const handleDeleteSession = () => {
+    if (!sessionId || !session.isOwner) return
+
+    setDialog({
+      isOpen: true,
+      type: "confirm",
+      title: "Delete Session",
+      message: "Are you sure you want to delete this session? This cannot be undone.",
+      onConfirm: executeDeleteSession,
+    })
+  }
+
   const createThread = async (action: "discuss" | "summarize") => {
     if (!selection) return
 
@@ -209,98 +378,53 @@ const App: React.FC = () => {
     const snippet =
       selection.text.length > 30 ? selection.text.substring(0, 30) + "..." : selection.text
 
-    if (action === "discuss") {
-      const newThread: Thread = {
-        id: newThreadId,
-        context: selection.text,
-        messages: [],
-        createdAt: Date.now(),
-        snippet,
-      }
-
-      setThreads(prev => [...prev, newThread])
-      setActiveThreadId(newThreadId)
-      setIsSidebarOpen(true)
-      setSelection(null)
-      window.getSelection()?.removeAllRanges()
-      return
-    }
-
-    const initialUserMessage = "Please explain this section in simple terms."
     const newThread: Thread = {
       id: newThreadId,
       context: selection.text,
-      messages: [{ role: "user", text: initialUserMessage, timestamp: Date.now() }],
+      messages: [],
       createdAt: Date.now(),
       snippet,
     }
 
-    setThreads(prev => [...prev, newThread])
-    setActiveThreadId(newThreadId)
+    threadManager.addThread(newThread)
+    threadManager.setActiveThreadId(newThreadId)
     setIsSidebarOpen(true)
-    setSelection(null)
-    window.getSelection()?.removeAllRanges()
+    clearSelection()
 
-    const aiMessageTimestamp = Date.now()
-    setThreads(prev =>
-      prev.map(t => {
-        if (t.id === newThreadId) {
-          return {
-            ...t,
-            messages: [...t.messages, { role: "model", text: "", timestamp: aiMessageTimestamp }],
-          }
-        }
-        return t
-      })
-    )
-
-    setIsAiLoading(true)
-    try {
-      for await (const chunk of streamThreadResponse(
-        newThread.context,
-        markdownContent,
-        newThread.messages,
-        initialUserMessage,
-        settings,
-        "explain"
-      )) {
-        setThreads(prev =>
-          prev.map(t => {
-            if (t.id === newThreadId) {
-              const messages = [...t.messages]
-              const lastMessage = messages[messages.length - 1]
-              if (lastMessage && lastMessage.role === "model") {
-                messages[messages.length - 1] = {
-                  ...lastMessage,
-                  text: lastMessage.text + chunk,
-                }
-              }
-              return { ...t, messages }
-            }
-            return t
-          })
-        )
+    // Save to API
+    let apiThreadId = newThreadId
+    if (sessionId) {
+      const savedThreadId = await session.addThread(selection.text, snippet)
+      if (savedThreadId && savedThreadId !== newThreadId) {
+        threadManager.updateThreadId(newThreadId, savedThreadId)
+        apiThreadId = savedThreadId
       }
-    } catch (error) {
-      const aiError = error as AIError
-      setThreads(prev =>
-        prev.map(t => {
-          if (t.id === newThreadId) {
-            const messages = [...t.messages]
-            const lastMessage = messages[messages.length - 1]
-            if (lastMessage && lastMessage.role === "model") {
-              messages[messages.length - 1] = {
-                ...lastMessage,
-                text: `Error: ${aiError.message}`,
-              }
-            }
-            return { ...t, messages }
-          }
-          return t
-        })
-      )
     }
-    setIsAiLoading(false)
+
+    if (action === "discuss") {
+      return
+    }
+
+    // For "summarize", add user message and stream AI response
+    const initialUserMessage = "Please explain this section in simple terms."
+    threadManager.addMessageToThread(apiThreadId, {
+      role: "user",
+      text: initialUserMessage,
+      timestamp: Date.now(),
+    })
+
+    if (sessionId) {
+      await session.addMessage(apiThreadId, "user", initialUserMessage)
+    }
+
+    await streamResponse({
+      threadId: apiThreadId,
+      context: selection.text,
+      markdownContent,
+      messages: [{ role: "user", text: initialUserMessage, timestamp: Date.now() }],
+      userMessage: initialUserMessage,
+      mode: "explain",
+    })
   }
 
   const handleCreateGeneralThread = async (e: React.FormEvent) => {
@@ -319,160 +443,69 @@ const App: React.FC = () => {
       snippet: "General Discussion",
     }
 
-    setThreads(prev => [...prev, newThread])
-    setActiveThreadId(newThreadId)
+    threadManager.addThread(newThread)
+    threadManager.setActiveThreadId(newThreadId)
     setIsSidebarOpen(true)
 
-    setThreads(prev =>
-      prev.map(t =>
-        t.id === newThreadId
-          ? { ...t, messages: [...t.messages, { role: "model", text: "", timestamp: Date.now() }] }
-          : t
-      )
-    )
-
-    setIsAiLoading(true)
-    try {
-      for await (const chunk of streamThreadResponse(
-        newThread.context,
-        markdownContent,
-        newThread.messages,
-        initialMessage,
-        settings,
-        "discuss"
-      )) {
-        setThreads(prev =>
-          prev.map(t => {
-            if (t.id === newThreadId) {
-              const messages = [...t.messages]
-              const lastMessage = messages[messages.length - 1]
-              if (lastMessage && lastMessage.role === "model") {
-                messages[messages.length - 1] = {
-                  ...lastMessage,
-                  text: lastMessage.text + chunk,
-                }
-              }
-              return { ...t, messages }
-            }
-            return t
-          })
-        )
+    let apiThreadId = newThreadId
+    if (sessionId) {
+      const savedThreadId = await session.addThread("Entire Document", "General Discussion")
+      if (savedThreadId && savedThreadId !== newThreadId) {
+        threadManager.updateThreadId(newThreadId, savedThreadId)
+        apiThreadId = savedThreadId
       }
-    } catch (error) {
-      const aiError = error as AIError
-      setThreads(prev =>
-        prev.map(t => {
-          if (t.id === newThreadId) {
-            const messages = [...t.messages]
-            const lastMessage = messages[messages.length - 1]
-            if (lastMessage && lastMessage.role === "model") {
-              messages[messages.length - 1] = {
-                ...lastMessage,
-                text: `Error: ${aiError.message}`,
-              }
-            }
-            return { ...t, messages }
-          }
-          return t
-        })
-      )
     }
-    setIsAiLoading(false)
+
+    if (sessionId) {
+      await session.addMessage(apiThreadId, "user", initialMessage)
+    }
+
+    await streamResponse({
+      threadId: apiThreadId,
+      context: "Entire Document",
+      markdownContent,
+      messages: [{ role: "user", text: initialMessage, timestamp: Date.now() }],
+      userMessage: initialMessage,
+      mode: "discuss",
+    })
   }
 
   const handleSendMessage = async (text: string) => {
-    if (!activeThreadId) return
-
-    const currentThread = threads.find(t => t.id === activeThreadId)
-    if (!currentThread) return
+    if (!threadManager.activeThreadId || !threadManager.activeThread) return
 
     const userMessage = { role: "user" as const, text, timestamp: Date.now() }
-    const messagesWithUser = [...currentThread.messages, userMessage]
+    threadManager.addMessageToThread(threadManager.activeThreadId, userMessage)
 
-    // Add user message
-    setThreads(prev =>
-      prev.map(t => {
-        if (t.id === activeThreadId) {
-          return { ...t, messages: messagesWithUser }
-        }
-        return t
-      })
-    )
-
-    setThreads(prev =>
-      prev.map(t =>
-        t.id === activeThreadId
-          ? { ...t, messages: [...t.messages, { role: "model", text: "", timestamp: Date.now() }] }
-          : t
-      )
-    )
-
-    setIsAiLoading(true)
-    try {
-      for await (const chunk of streamThreadResponse(
-        currentThread.context,
-        markdownContent,
-        messagesWithUser,
-        text,
-        settings,
-        "discuss"
-      )) {
-        setThreads(prev =>
-          prev.map(t => {
-            if (t.id === activeThreadId) {
-              const messages = [...t.messages]
-              const lastMessage = messages[messages.length - 1]
-              if (lastMessage && lastMessage.role === "model") {
-                messages[messages.length - 1] = {
-                  ...lastMessage,
-                  text: lastMessage.text + chunk,
-                }
-              }
-              return { ...t, messages }
-            }
-            return t
-          })
-        )
-      }
-    } catch (error) {
-      const aiError = error as AIError
-      setThreads(prev =>
-        prev.map(t => {
-          if (t.id === activeThreadId) {
-            const messages = [...t.messages]
-            const lastMessage = messages[messages.length - 1]
-            if (lastMessage && lastMessage.role === "model") {
-              messages[messages.length - 1] = {
-                ...lastMessage,
-                text: `Error: ${aiError.message}`,
-              }
-            }
-            return { ...t, messages }
-          }
-          return t
-        })
-      )
+    if (sessionId) {
+      await session.addMessage(threadManager.activeThreadId, "user", text)
     }
-    setIsAiLoading(false)
+
+    await streamResponse({
+      threadId: threadManager.activeThreadId,
+      context: threadManager.activeThread.context,
+      markdownContent,
+      messages: [...threadManager.activeThread.messages, userMessage],
+      userMessage: text,
+      mode: "discuss",
+    })
   }
 
   const handleViewThreadList = () => {
-    setActiveThreadId(null)
+    threadManager.setActiveThreadId(null)
     setIsSidebarOpen(true)
   }
 
-  const handleDeleteThread = (threadId: string) => {
-    setThreads(prev => prev.filter(t => t.id !== threadId))
-    if (activeThreadId === threadId) {
-      setActiveThreadId(null)
-    }
+  const handleSaveQuote = () => {
+    if (!selection) return
+    addQuote(selection.text)
+    clearSelection()
   }
 
   const handleRetry = async () => {
-    if (!activeThreadId) return
+    if (!threadManager.activeThreadId || !threadManager.activeThread) return
 
-    const currentThread = threads.find(t => t.id === activeThreadId)
-    if (!currentThread || currentThread.messages.length < 2) return
+    const currentThread = threadManager.activeThread
+    if (currentThread.messages.length < 2) return
 
     const messages = currentThread.messages
     const lastUserMessageIndex =
@@ -484,22 +517,15 @@ const App: React.FC = () => {
 
     const lastUserMessage = messages[lastUserMessageIndex].text
 
-    setThreads(prev =>
-      prev.map(t => {
-        if (t.id === activeThreadId) {
-          return {
-            ...t,
-            messages: messages
-              .slice(0, -1)
-              .concat([{ role: "model", text: "", timestamp: Date.now() }]),
-          }
-        }
-        return t
-      })
-    )
+    threadManager.replaceLastMessage(threadManager.activeThreadId, {
+      role: "model",
+      text: "",
+      timestamp: Date.now(),
+    })
 
-    setIsAiLoading(true)
+    let fullResponse = ""
     try {
+      const { streamThreadResponse } = await import("./services/aiService")
       for await (const chunk of streamThreadResponse(
         currentThread.context,
         markdownContent,
@@ -508,267 +534,326 @@ const App: React.FC = () => {
         settings,
         "discuss"
       )) {
-        setThreads(prev =>
-          prev.map(t => {
-            if (t.id === activeThreadId) {
-              const msgs = [...t.messages]
-              const lastMessage = msgs[msgs.length - 1]
-              if (lastMessage && lastMessage.role === "model") {
-                msgs[msgs.length - 1] = {
-                  ...lastMessage,
-                  text: lastMessage.text + chunk,
-                }
-              }
-              return { ...t, messages: msgs }
-            }
-            return t
-          })
-        )
+        fullResponse += chunk
+        threadManager.appendToLastMessage(threadManager.activeThreadId!, chunk)
+      }
+
+      if (sessionId && fullResponse) {
+        await session.addMessage(threadManager.activeThreadId!, "model", fullResponse)
       }
     } catch (error) {
-      const aiError = error as AIError
-      setThreads(prev =>
-        prev.map(t => {
-          if (t.id === activeThreadId) {
-            const msgs = [...t.messages]
-            const lastMessage = msgs[msgs.length - 1]
-            if (lastMessage && lastMessage.role === "model") {
-              msgs[msgs.length - 1] = {
-                ...lastMessage,
-                text: `Error: ${aiError.message}`,
-              }
-            }
-            return { ...t, messages: msgs }
-          }
-          return t
-        })
+      const aiError = error as { message?: string }
+      threadManager.updateLastMessage(
+        threadManager.activeThreadId!,
+        `Error: ${aiError.message || "An error occurred"}`
       )
     }
-    setIsAiLoading(false)
   }
 
   // --- Render ---
 
-  if (viewState === ViewState.START) {
+  if (viewState === ViewState.QUOTES) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 transition-colors duration-300">
-        <div className="absolute top-4 right-4 flex gap-2">
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors"
-          >
-            <SettingsIcon size={20} />
-          </button>
-          <button
-            onClick={toggleDarkMode}
-            className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors"
-          >
-            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-        </div>
-
-        <div className="max-w-2xl w-full bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-8 border border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-blue-600 p-3 rounded-xl text-white">
-              <LayoutTemplate size={24} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-serif">
-                Threaded Reader
-              </h1>
-              <p className="text-slate-500 dark:text-slate-400">
-                Contextual AI analysis for your documents.
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Paste your Markdown content here
-            </label>
-            <textarea
-              className="w-full h-64 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-mono text-sm resize-none"
-              value={markdownContent}
-              onChange={e => setMarkdownContent(e.target.value)}
-              placeholder="# Enter your markdown here..."
-            />
-          </div>
-
-          <button
-            onClick={handleStart}
-            disabled={!markdownContent.trim()}
-            className="w-full py-4 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span>Start Reading</span>
-            <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-          </button>
-        </div>
-        <p className="mt-6 text-slate-400 dark:text-slate-600 text-sm">
-          Powered by {settings.provider.charAt(0).toUpperCase() + settings.provider.slice(1)}
-        </p>
-
-        <SettingsModal
-          isOpen={isSettingsOpen}
-          onClose={() => setIsSettingsOpen(false)}
-          currentSettings={settings}
-          onSave={handleSaveSettings}
-        />
-      </div>
+      <QuotesView
+        quotes={quotes}
+        onBack={() => setViewState(ViewState.READING)}
+        onDeleteQuote={deleteQuote}
+      />
     )
   }
 
-  const activeThread = threads.find(t => t.id === activeThreadId) || null
+  if (viewState === ViewState.START) {
+    return (
+      <>
+        <HistoryPanel
+          sessions={sessionHistory}
+          currentSessionId={sessionId}
+          onSelectSession={handleSelectSession}
+          onDeleteSession={handleDeleteFromHistory}
+          onNewSession={handleNewSession}
+          isOpen={isHistoryOpen}
+          onToggle={() => setIsHistoryOpen(prev => !prev)}
+        />
+        <StartView
+          onContentReady={handleContentReady}
+          settings={settings}
+          onSaveSettings={saveSettings}
+          isDarkMode={isDarkMode}
+          onToggleDarkMode={toggleDarkMode}
+        />
+      </>
+    )
+  }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white dark:bg-slate-950 transition-colors duration-300">
-      {/* Left Pane: Document View Container */}
-      <div
-        className={`flex-1 h-full relative flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? "w-1/2" : "w-full"}`}
-        onMouseDown={handleDocumentMouseDown}
-      >
-        {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto w-full">
-          <div className="max-w-[720px] mx-auto px-8 py-16">
-            <header className="mb-12 flex items-center justify-between sticky top-0 z-10 py-4 bg-white/90 dark:bg-slate-950/90 backdrop-blur-sm -mx-4 px-4">
-              <div className="flex items-center gap-4">
-                <div
-                  className="flex items-center gap-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer transition-colors"
-                  onClick={() => setViewState(ViewState.START)}
-                >
-                  <PenTool size={16} />
-                  <span className="text-sm font-medium">Edit Source</span>
-                </div>
-                <div
-                  className="flex items-center gap-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer transition-colors"
-                  onClick={handleExport}
-                >
-                  <Download size={16} />
-                  <span className="text-sm font-medium">Export</span>
-                </div>
-              </div>
+    <div className="flex flex-col h-screen overflow-hidden bg-white dark:bg-neutral-950 transition-colors duration-300">
+      {/* History Panel */}
+      <HistoryPanel
+        sessions={sessionHistory}
+        currentSessionId={sessionId}
+        onSelectSession={handleSelectSession}
+        onDeleteSession={handleDeleteFromHistory}
+        onNewSession={handleNewSession}
+        isOpen={isHistoryOpen}
+        onToggle={() => setIsHistoryOpen(prev => !prev)}
+      />
 
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setIsSettingsOpen(true)}
-                  className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 transition-colors"
-                  title="Settings"
-                >
-                  <SettingsIcon size={18} />
-                </button>
-                <button
-                  onClick={toggleDarkMode}
-                  className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 transition-colors"
-                >
-                  {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
+      {/* Shared Session Banner */}
+      {sessionId && !session.isOwner && showSharedBanner && (
+        <SharedBanner onDismiss={() => setShowSharedBanner(false)} />
+      )}
 
-                {threads.length > 0 && (
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Pane: Document View Container */}
+        <div
+          className={`flex-1 h-full relative flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? "w-1/2" : "w-full"}`}
+          onMouseDown={handleDocumentMouseDown}
+        >
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-y-auto w-full">
+            <div className="max-w-[720px] mx-auto px-8 py-16">
+              <header className="mb-8 flex items-center justify-between sticky top-0 z-10 py-3 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-sm -mx-4 px-4">
+                <div className="flex items-center gap-3">
                   <button
-                    onClick={handleViewThreadList}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full font-medium transition-colors"
+                    onClick={() => setIsHistoryOpen(prev => !prev)}
+                    className="p-1.5 rounded-md text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300 hover:bg-slate-100 dark:hover:bg-neutral-800 transition-colors"
+                    title="History"
                   >
-                    {threads.length} active threads
+                    <History size={18} />
                   </button>
-                )}
-              </div>
-            </header>
-            {/* API Key Warning Banner */}
-            {!settings.apiKey && (
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="w-full mb-8 flex items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-800 dark:text-amber-200 text-sm hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors group"
-              >
-                <AlertCircle size={18} className="shrink-0" />
-                <span className="flex-1 text-left">
-                  No API key configured for{" "}
-                  {settings.provider.charAt(0).toUpperCase() + settings.provider.slice(1)}. Click to
-                  open Settings.
-                </span>
-                <SettingsIcon
-                  size={16}
-                  className="shrink-0 opacity-50 group-hover:opacity-100 transition-opacity"
-                />
-              </button>
-            )}
-            <div
-              ref={contentRef}
-              className="markdown-content font-serif text-slate-800 dark:text-slate-200"
-            >
-              <Suspense
-                fallback={<div className="animate-pulse text-slate-400">Loading content...</div>}
-              >
-                <MarkdownRenderer content={markdownContent} />
-              </Suspense>
-            </div>
-            <div className="h-32"></div> {/* Bottom padding for floating bar */}
-          </div>
-        </div>
-
-        {/* Floating General Chat Input */}
-        <div className="absolute bottom-8 left-0 right-0 flex justify-center px-4 pointer-events-none z-10">
-          <div
-            className={`transition-all duration-300 ${isSidebarOpen ? "max-w-sm" : "max-w-xl"} w-full pointer-events-auto`}
-          >
-            <form onSubmit={handleCreateGeneralThread} className="relative group">
-              <div className="absolute inset-0 bg-slate-900/5 dark:bg-slate-100/5 rounded-full blur-md transform translate-y-2 group-hover:translate-y-1 transition-transform"></div>
-              <div className="relative bg-white dark:bg-slate-900 rounded-full shadow-xl border border-slate-200 dark:border-slate-700 flex items-center p-1.5 transition-all focus-within:border-blue-500 focus-within:shadow-blue-100 dark:focus-within:shadow-none">
-                <div className="pl-4 pr-2 text-slate-400">
-                  <MessageCircle size={20} />
+                  <span className="text-slate-200 dark:text-neutral-700">|</span>
+                  <button
+                    onClick={handleNewSession}
+                    className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-neutral-200 transition-colors"
+                  >
+                    <PenTool size={15} />
+                    <span>New</span>
+                  </button>
+                  {sourceMetadata && (
+                    <>
+                      <span className="text-slate-300 dark:text-neutral-600">·</span>
+                      <span className="text-sm text-slate-400 dark:text-neutral-500 truncate max-w-[180px]">
+                        {sourceMetadata.type === "paste"
+                          ? "Pasted"
+                          : sourceMetadata.type === "url"
+                            ? (() => {
+                                try {
+                                  return new URL(sourceMetadata.name!).hostname
+                                } catch {
+                                  return sourceMetadata.name
+                                }
+                              })()
+                            : sourceMetadata.name}
+                      </span>
+                    </>
+                  )}
+                  {threadManager.threads.length > 0 && (
+                    <button
+                      onClick={handleViewThreadList}
+                      className="text-sm text-slate-600 dark:text-neutral-300 hover:text-slate-900 dark:hover:text-white px-2.5 py-1 rounded-full font-medium transition-colors hover:bg-slate-100 dark:hover:bg-neutral-800"
+                    >
+                      {threadManager.threads.length} thread
+                      {threadManager.threads.length !== 1 && "s"}
+                    </button>
+                  )}
                 </div>
-                <input
-                  type="text"
-                  value={generalInputValue}
-                  onChange={e => setGeneralInputValue(e.target.value)}
-                  placeholder="Ask a question about the whole document..."
-                  className="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-sm text-slate-700 dark:text-slate-200 placeholder:text-slate-400 py-2.5"
-                />
+
+                <div className="flex items-center gap-1">
+                  {quotes.length > 0 && (
+                    <button
+                      onClick={() => setViewState(ViewState.QUOTES)}
+                      className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-neutral-800 text-amber-500 dark:text-amber-400 transition-colors"
+                      title={`${quotes.length} saved quote${quotes.length !== 1 ? "s" : ""}`}
+                    >
+                      <Bookmark size={18} />
+                    </button>
+                  )}
+                  <button
+                    onClick={handleShare}
+                    disabled={isCreatingSession}
+                    className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-neutral-200 transition-colors disabled:opacity-50"
+                    title="Share"
+                  >
+                    {isCreatingSession ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      <Share size={18} />
+                    )}
+                  </button>
+                  <button
+                    onClick={toggleDarkMode}
+                    className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-neutral-200 transition-colors"
+                    title={isDarkMode ? "Light mode" : "Dark mode"}
+                  >
+                    {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                  </button>
+                  <div className="relative" ref={moreMenuRef}>
+                    <button
+                      onClick={() => setShowMoreMenu(!showMoreMenu)}
+                      className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-neutral-200 transition-colors"
+                      title="More options"
+                    >
+                      <MoreHorizontal size={18} />
+                    </button>
+                    {showMoreMenu && (
+                      <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-neutral-900 rounded-lg shadow-lg border border-slate-200 dark:border-neutral-700 py-1 z-50">
+                        <button
+                          onClick={() => {
+                            handleExport()
+                            setShowMoreMenu(false)
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-neutral-300 hover:bg-slate-100 dark:hover:bg-neutral-800 flex items-center gap-3"
+                        >
+                          <Download size={16} />
+                          Export
+                        </button>
+                        {quotes.length === 0 && (
+                          <button
+                            onClick={() => {
+                              setViewState(ViewState.QUOTES)
+                              setShowMoreMenu(false)
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-neutral-300 hover:bg-slate-100 dark:hover:bg-neutral-800 flex items-center gap-3"
+                          >
+                            <Bookmark size={16} />
+                            Saved quotes
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            openSettings()
+                            setShowMoreMenu(false)
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-neutral-300 hover:bg-slate-100 dark:hover:bg-neutral-800 flex items-center gap-3"
+                        >
+                          <SettingsIcon size={16} />
+                          Settings
+                        </button>
+                        {sessionId && session.isOwner && (
+                          <>
+                            <div className="my-1 border-t border-slate-200 dark:border-neutral-700" />
+                            <button
+                              onClick={() => {
+                                handleDeleteSession()
+                                setShowMoreMenu(false)
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-3"
+                            >
+                              <Trash2 size={16} />
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </header>
+              {/* API Key Warning Banner */}
+              {!settings.apiKey && settings.provider !== "ollama" && (
                 <button
-                  type="submit"
-                  disabled={!generalInputValue.trim()}
-                  className="p-2 bg-slate-900 dark:bg-slate-700 text-white rounded-full hover:bg-slate-800 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
+                  onClick={openSettings}
+                  className="w-full mb-8 flex items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-800 dark:text-amber-200 text-sm hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors group"
                 >
-                  <ArrowRight size={16} />
+                  <AlertCircle size={18} className="shrink-0" />
+                  <span className="flex-1 text-left">
+                    No API key configured for{" "}
+                    {settings.provider.charAt(0).toUpperCase() + settings.provider.slice(1)}. Click
+                    to open Settings.
+                  </span>
+                  <SettingsIcon
+                    size={16}
+                    className="shrink-0 opacity-50 group-hover:opacity-100 transition-opacity"
+                  />
                 </button>
+              )}
+              <div ref={contentRef}>
+                <Suspense
+                  fallback={<div className="animate-pulse text-slate-400">Loading content...</div>}
+                >
+                  <MarkdownRenderer
+                    content={markdownContent}
+                    className="font-serif text-slate-800 dark:text-neutral-100"
+                  />
+                </Suspense>
               </div>
-            </form>
+              <div className="h-32"></div>
+            </div>
           </div>
+
+          {/* Floating General Chat Input */}
+          <div className="absolute bottom-8 left-0 right-0 flex justify-center px-4 pointer-events-none z-10">
+            <div
+              className={`transition-all duration-300 ${isSidebarOpen ? "max-w-sm" : "max-w-xl"} w-full pointer-events-auto`}
+            >
+              <form onSubmit={handleCreateGeneralThread} className="relative group">
+                <div className="absolute inset-0 bg-slate-900/5 dark:bg-neutral-100/5 rounded-full blur-md transform translate-y-2 group-hover:translate-y-1 transition-transform"></div>
+                <div className="relative bg-white dark:bg-neutral-900 rounded-full shadow-xl border border-slate-200 dark:border-neutral-700 flex items-center p-1.5 transition-all focus-within:border-blue-500 focus-within:shadow-blue-100 dark:focus-within:shadow-none">
+                  <div className="pl-4 pr-2 text-slate-400">
+                    <MessageCircle size={20} />
+                  </div>
+                  <input
+                    type="text"
+                    value={generalInputValue}
+                    onChange={e => setGeneralInputValue(e.target.value)}
+                    placeholder="Ask a question about the whole document..."
+                    className="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-sm text-slate-700 dark:text-neutral-200 placeholder:text-slate-400 py-2.5"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!generalInputValue.trim()}
+                    className="p-2 bg-slate-900 dark:bg-neutral-700 text-white rounded-full hover:bg-slate-800 dark:hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
+                  >
+                    <ArrowRight size={16} />
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          {selection && selection.rect && (
+            <Tooltip
+              rect={selection.rect}
+              text={selection.text}
+              onAction={createThread}
+              onSaveQuote={handleSaveQuote}
+            />
+          )}
         </div>
 
-        {selection && selection.rect && (
-          <Tooltip rect={selection.rect} text={selection.text} onAction={createThread} />
-        )}
-      </div>
-
-      {/* Right Pane: Thread Sidebar */}
-      <div
-        className={`fixed inset-y-0 right-0 w-[450px] transform transition-transform duration-300 ease-in-out shadow-2xl z-40 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 ${isSidebarOpen ? "translate-x-0" : "translate-x-full"}`}
-      >
-        {activeThreadId ? (
-          <ThreadPanel
-            thread={activeThread}
-            isLoading={isAiLoading}
-            onClose={() => setIsSidebarOpen(false)}
-            onBack={() => setActiveThreadId(null)}
-            onSendMessage={handleSendMessage}
-            onDelete={() => handleDeleteThread(activeThreadId)}
-            onRetry={handleRetry}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-          />
-        ) : (
-          <ThreadList
-            threads={threads}
-            onSelectThread={setActiveThreadId}
-            onClose={() => setIsSidebarOpen(false)}
-          />
-        )}
+        {/* Right Pane: Thread Sidebar */}
+        <div
+          className={`fixed inset-y-0 right-0 w-[450px] transform transition-transform duration-300 ease-in-out shadow-2xl z-40 bg-white dark:bg-neutral-900 border-l border-slate-200 dark:border-neutral-800 ${isSidebarOpen ? "translate-x-0" : "translate-x-full"}`}
+        >
+          {threadManager.activeThreadId ? (
+            <ThreadPanel
+              thread={threadManager.activeThread}
+              isLoading={isAiLoading}
+              onClose={() => setIsSidebarOpen(false)}
+              onBack={() => threadManager.setActiveThreadId(null)}
+              onSendMessage={handleSendMessage}
+              onDelete={() => threadManager.deleteThread(threadManager.activeThreadId!)}
+              onRetry={handleRetry}
+              onOpenSettings={openSettings}
+            />
+          ) : (
+            <ThreadList
+              threads={threadManager.threads}
+              onSelectThread={threadManager.setActiveThreadId}
+              onClose={() => setIsSidebarOpen(false)}
+            />
+          )}
+        </div>
       </div>
 
       <SettingsModal
         isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        onClose={closeSettings}
         currentSettings={settings}
-        onSave={handleSaveSettings}
+        onSave={saveSettings}
       />
+
+      <Dialog state={dialog} onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))} />
     </div>
   )
 }

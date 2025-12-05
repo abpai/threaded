@@ -16,23 +16,41 @@ const PROVIDERS: { id: AiProvider; name: string }[] = [
   { id: "ollama", name: "Ollama (Local)" },
 ]
 
-const DEFAULT_MODELS_MAP: Record<AiProvider, string> = {
-  google: "gemini-1.5-flash",
-  openai: "gpt-4o",
-  anthropic: "claude-3-5-sonnet-latest",
-  ollama: "llama3.2",
+const API_KEY_LINKS: Record<AiProvider, { url: string; label: string } | null> = {
+  google: { url: "https://aistudio.google.com/apikey", label: "Get API key" },
+  openai: { url: "https://platform.openai.com/api-keys", label: "Get API key" },
+  anthropic: { url: "https://console.anthropic.com/settings/keys", label: "Get API key" },
+  ollama: { url: "https://ollama.readthedocs.io/en/api/", label: "Ollama docs" },
 }
 
-const FALLBACK_MODELS: Record<AiProvider, string[]> = {
-  google: ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp"],
-  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
-  anthropic: [
-    "claude-3-5-sonnet-latest",
-    "claude-3-5-haiku-latest",
-    "claude-3-opus-latest",
-    "claude-3-sonnet-20240229",
-  ],
-  ollama: ["llama3.2", "llama3.1", "llama3", "mistral", "gemma2"],
+const API_KEYS_STORAGE_KEY = "threaded-api-keys"
+
+// API Response types for model listing
+interface GoogleModelsResponse {
+  models?: Array<{ name: string }>
+}
+
+interface OpenAIModelsResponse {
+  data?: Array<{ id: string }>
+}
+
+interface AnthropicModelsResponse {
+  data?: Array<{ id: string }>
+}
+
+function getStoredApiKeys(): Partial<Record<AiProvider, string>> {
+  try {
+    const stored = localStorage.getItem(API_KEYS_STORAGE_KEY)
+    return stored ? JSON.parse(stored) : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveApiKeyForProvider(provider: AiProvider, apiKey: string): void {
+  const keys = getStoredApiKeys()
+  keys[provider] = apiKey
+  localStorage.setItem(API_KEYS_STORAGE_KEY, JSON.stringify(keys))
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -44,9 +62,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [settings, setSettings] = useState<AppSettings>(currentSettings)
 
   // Model List State
-  const [availableModels, setAvailableModels] = useState<string[]>(
-    FALLBACK_MODELS[currentSettings.provider]
-  )
+  const [availableModels, setAvailableModels] = useState<string[]>([])
   const [isModelListOpen, setIsModelListOpen] = useState(false)
   const [isLoadingModels, setIsLoadingModels] = useState(false)
 
@@ -56,7 +72,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setSettings(currentSettings)
-      setAvailableModels(FALLBACK_MODELS[currentSettings.provider])
+      setAvailableModels([])
     }
   }, [isOpen, currentSettings])
 
@@ -79,14 +95,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     if (newProvider === "openai") newBaseUrl = "https://api.openai.com/v1"
     if (newProvider === "ollama") newBaseUrl = "http://localhost:11434/v1"
 
+    // Save current API key before switching
+    if (settings.apiKey) {
+      saveApiKeyForProvider(settings.provider, settings.apiKey)
+    }
+
+    // Load stored API key for new provider
+    const storedKeys = getStoredApiKeys()
+    const storedApiKey = storedKeys[newProvider] || ""
+
     setSettings(prev => ({
       ...prev,
       provider: newProvider,
-      modelId: DEFAULT_MODELS_MAP[newProvider],
+      modelId: "",
       baseUrl: newBaseUrl,
-      apiKey: prev.provider === newProvider ? prev.apiKey : "", // Clear key if switching provider
+      apiKey: storedApiKey,
     }))
-    setAvailableModels(FALLBACK_MODELS[newProvider])
+    setAvailableModels([])
   }
 
   const fetchModels = async () => {
@@ -100,9 +125,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models?key=${settings.apiKey}`
         )
-        const data: any = await response.json()
+        const data: GoogleModelsResponse = await response.json()
         if (data.models) {
-          fetched = data.models.map((m: any) => m.name.replace("models/", ""))
+          fetched = data.models.map(m => m.name.replace("models/", ""))
         }
       } else if (settings.provider === "openai" || settings.provider === "ollama") {
         const baseUrl =
@@ -116,9 +141,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         }
 
         const response = await fetch(`${baseUrl}/models`, { headers })
-        const data: any = await response.json()
+        const data: OpenAIModelsResponse = await response.json()
         if (data.data) {
-          fetched = data.data.map((m: any) => m.id)
+          fetched = data.data.map(m => m.id)
         }
       } else if (settings.provider === "anthropic") {
         const response = await fetch("https://api.anthropic.com/v1/models", {
@@ -128,9 +153,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             "anthropic-dangerous-direct-browser-access": "true",
           },
         })
-        const data: any = await response.json()
+        const data: AnthropicModelsResponse = await response.json()
         if (data.data) {
-          fetched = data.data.map((m: any) => m.id)
+          fetched = data.data.map(m => m.id)
         }
       }
     } catch (error) {
@@ -138,10 +163,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     }
 
     if (fetched.length > 0) {
-      // Sort specifically to put exact matches or shorter names first often helps,
-      // but alphabetical is fine. Let's just keep them as returned but unique.
-      setAvailableModels(Array.from(new Set(fetched)))
+      // Filter models by provider-specific patterns
+      const filterPatterns: Record<AiProvider, RegExp | null> = {
+        google: /^(gemini|gemma)/i,
+        openai: /^gpt/i,
+        anthropic: /^claude/i,
+        ollama: null, // No filter for local models
+      }
+
+      const pattern = filterPatterns[settings.provider]
+      const filtered = pattern ? fetched.filter(m => pattern.test(m)) : fetched
+      const uniqueModels = Array.from(new Set(filtered.length > 0 ? filtered : fetched))
+
+      setAvailableModels(uniqueModels)
       setIsModelListOpen(true)
+
+      // Auto-select first model from fetched list
+      if (uniqueModels.length > 0) {
+        setSettings(prev => ({ ...prev, modelId: uniqueModels[0] }))
+      }
     }
 
     setIsLoadingModels(false)
@@ -149,6 +189,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
+    // Save API key for current provider
+    if (settings.apiKey) {
+      saveApiKeyForProvider(settings.provider, settings.apiKey)
+    }
     onSave(settings)
     onClose()
   }
@@ -160,12 +204,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800">
-          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Model Settings</h2>
+      <div className="w-full max-w-md bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-neutral-800">
+        <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-neutral-800">
+          <h2 className="text-lg font-bold text-slate-800 dark:text-neutral-100">Model Settings</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 transition-colors"
+            className="p-2 hover:bg-slate-100 dark:hover:bg-neutral-800 rounded-full text-slate-500 transition-colors"
           >
             <X size={20} />
           </button>
@@ -174,14 +218,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         <form onSubmit={handleSave} className="p-6 space-y-4">
           {/* Provider Select */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-sm font-medium text-slate-700 dark:text-neutral-300 mb-1.5">
               AI Provider
             </label>
             <div className="relative">
               <select
                 value={settings.provider}
                 onChange={handleProviderChange}
-                className="w-full appearance-none bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full appearance-none bg-slate-50 dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 text-slate-900 dark:text-neutral-100 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               >
                 {PROVIDERS.map(p => (
                   <option key={p.id} value={p.id}>
@@ -197,7 +241,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* API Key */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-sm font-medium text-slate-700 dark:text-neutral-300 mb-1.5">
               API Key{" "}
               {settings.provider === "ollama" && (
                 <span className="text-slate-400 font-normal">(Optional)</span>
@@ -212,16 +256,34 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   ? "Optional for local Ollama"
                   : `Enter your ${PROVIDERS.find(p => p.id === settings.provider)?.name} API Key`
               }
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 text-slate-900 dark:text-neutral-100 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             />
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-1.5 text-xs text-slate-500 dark:text-neutral-400">
+              {API_KEY_LINKS[settings.provider] && (
+                <>
+                  <a
+                    href={API_KEY_LINKS[settings.provider]!.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    {API_KEY_LINKS[settings.provider]!.label} →
+                  </a>
+                  <span className="mx-1.5">·</span>
+                </>
+              )}
               Keys are stored locally in your browser.
+              {settings.provider === "ollama" && (
+                <span className="block mt-1 text-amber-600 dark:text-amber-400">
+                  Enable CORS: OLLAMA_ORIGINS=* ollama serve
+                </span>
+              )}
             </p>
           </div>
 
           {/* Model Name (Searchable Combobox) */}
           <div ref={dropdownRef} className="relative">
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-sm font-medium text-slate-700 dark:text-neutral-300 mb-1.5">
               Model Name
             </label>
             <div className="relative">
@@ -234,7 +296,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 }}
                 onFocus={() => setIsModelListOpen(true)}
                 placeholder="e.g. gpt-4o, gemini-1.5-flash, llama3.2"
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 text-slate-900 dark:text-neutral-100 rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               />
               <button
                 type="button"
@@ -253,7 +315,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
             {/* Dropdown List */}
             {isModelListOpen && (
-              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                 {filteredModels.length > 0 ? (
                   filteredModels.map(model => (
                     <button
@@ -263,7 +325,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         setSettings({ ...settings, modelId: model })
                         setIsModelListOpen(false)
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-between"
+                      className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-neutral-200 hover:bg-slate-100 dark:hover:bg-neutral-700 flex items-center justify-between"
                     >
                       <span>{model}</span>
                       {settings.modelId === model && <Check size={14} className="text-blue-500" />}
@@ -281,7 +343,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* Base URL (Optional for OpenAI, Required for Ollama) */}
           {(settings.provider === "openai" || settings.provider === "ollama") && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+              <label className="block text-sm font-medium text-slate-700 dark:text-neutral-300 mb-1.5">
                 Base URL{" "}
                 <span className="text-slate-400 font-normal">
                   {settings.provider === "ollama" ? "(Required)" : "(Optional)"}
@@ -296,7 +358,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     ? "http://localhost:11434/v1"
                     : "https://api.openai.com/v1"
                 }
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 text-slate-900 dark:text-neutral-100 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               />
             </div>
           )}

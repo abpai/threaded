@@ -17,26 +17,29 @@ export default [
         ecmaVersion: "latest",
         sourceType: "module",
         ecmaFeatures: {
-          jsx: true
-        }
+          jsx: true,
+        },
       },
       globals: {
         ...globals.browser,
         ...globals.node,
         NodeJS: "readonly",
-        Fetcher: "readonly"
-      }
+        Fetcher: "readonly",
+        RequestInit: "readonly",
+        D1Database: "readonly",
+        Ai: "readonly",
+      },
     },
     plugins: {
       react,
       "react-hooks": reactHooks,
       "@typescript-eslint": typescript,
-      prettier
+      prettier,
     },
     settings: {
       react: {
-        version: "detect"
-      }
+        version: "detect",
+      },
     },
     rules: {
       ...prettierConfig.rules,
@@ -48,16 +51,15 @@ export default [
         "error",
         {
           argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_"
-        }
+          varsIgnorePattern: "^_",
+        },
       ],
       "@typescript-eslint/no-explicit-any": "warn",
       "react-hooks/rules-of-hooks": "error",
-      "react-hooks/exhaustive-deps": "warn"
-    }
+      "react-hooks/exhaustive-deps": "warn",
+    },
   },
   {
-    ignores: ["node_modules/**", "dist/**", "build/**", "*.config.js"]
-  }
+    ignores: ["node_modules/**", "dist/**", "build/**", "*.config.js", ".wrangler/**"],
+  },
 ]
-

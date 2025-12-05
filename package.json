@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:full": "npm run dev:worker & sleep 2 && npm run dev",
+    "dev:worker": "wrangler dev --config wrangler.dev.toml",
     "build": "vite build",
     "preview": "vite preview",
     "deploy:cf": "wrangler deploy",
@@ -27,6 +29,7 @@
     "react-markdown": "^10.1.0",
     "rehype-highlight": "7",
     "rehype-katex": "7",
+    "remark-gfm": "^4.0.1",
     "remark-math": "6"
   },
   "devDependencies": {
@@ -46,6 +49,6 @@
     "prettier": "^3.7.4",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
-    "wrangler": "^4.52.1"
+    "wrangler": "^4.53.0"
   }
 }

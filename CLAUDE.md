@@ -22,6 +22,7 @@ API keys are configured through the in-app settings modal. Users can set their A
 ## Architecture
 
 ### Core Flow
+
 1. **Start View** (`ViewState.START`): User pastes markdown content
 2. **Reading View** (`ViewState.READING`): Formatted document with text selection capabilities
 3. **Thread Creation**: Highlight text → tooltip appears → "Discuss" or "Explain" creates a thread in the sidebar
@@ -44,6 +45,7 @@ The AI service constructs different system prompts based on whether the thread i
 ### State Management
 
 All state is managed in `App.tsx` using React hooks:
+
 - `threads`: Array of conversation threads
 - `settings`: Provider, API key, model ID stored in localStorage under `threaded-settings`
 - `selection`: Current text selection with bounding rect for tooltip positioning

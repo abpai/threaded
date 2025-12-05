@@ -67,6 +67,18 @@ export const PROMPTS = {
   `,
 }
 
+export function getSummaryPrompt(document: string): string {
+  return dedent`
+    Summarize this document in one sentence (max 80 characters).
+    Focus on the main topic or purpose. Output ONLY the summary, no preamble.
+
+    Document:
+    """
+    ${truncate(document, 3000)}
+    """
+  `
+}
+
 export type PromptMode = "discuss" | "explain"
 
 export function getSystemPrompt(context: string, fullDocument: string, mode: PromptMode): string {

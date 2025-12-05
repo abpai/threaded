@@ -3,7 +3,7 @@ import { createOpenAI } from "@ai-sdk/openai"
 import { createAnthropic } from "@ai-sdk/anthropic"
 import { createGoogleGenerativeAI } from "@ai-sdk/google"
 import { Message, AppSettings } from "../types"
-import { getSystemPrompt } from "./prompts"
+import { getSystemPrompt, getSummaryPrompt } from "./prompts"
 
 export type ThreadMode = "discuss" | "explain"
 
@@ -16,6 +16,9 @@ export interface AIError {
 
 function getModel(settings: AppSettings) {
   const modelId = settings.modelId
+  if (!modelId) {
+    throw new Error("No model selected. Please select a model in Settings.")
+  }
 
   switch (settings.provider) {
     case "openai": {
@@ -23,14 +26,14 @@ function getModel(settings: AppSettings) {
         apiKey: settings.apiKey,
         baseURL: settings.baseUrl || undefined,
       })
-      return openai(modelId || "gpt-4o")
+      return openai(modelId)
     }
     case "ollama": {
       const openai = createOpenAI({
         apiKey: "ollama", // Required but ignored by Ollama
         baseURL: settings.baseUrl || "http://localhost:11434/v1",
       })
-      return openai(modelId || "llama3.2")
+      return openai(modelId)
     }
     case "anthropic": {
       const anthropic = createAnthropic({
@@ -39,13 +42,13 @@ function getModel(settings: AppSettings) {
           "anthropic-dangerous-direct-browser-access": "true",
         },
       })
-      return anthropic(modelId || "claude-3-5-sonnet-latest")
+      return anthropic(modelId)
     }
     case "google": {
       const google = createGoogleGenerativeAI({
         apiKey: settings.apiKey,
       })
-      return google(modelId || "gemini-1.5-flash")
+      return google(modelId)
     }
     default:
       throw new Error("Provider not supported")
@@ -65,7 +68,7 @@ function formatMessages(
 
   const messages: Array<{ role: "user" | "assistant"; content: string }> = historyForChat.map(
     msg => ({
-      role: (msg.role === "user" ? "user" : "assistant") as "user" | "assistant",
+      role: msg.role === "user" ? "user" : "assistant",
       content: msg.text,
     })
   )
@@ -208,5 +211,35 @@ export async function generateThreadResponse(
       return `Error: ${(error as AIError).message}`
     }
     return "Sorry, I encountered an error while communicating with the AI."
+  }
+}
+
+export async function generateSessionSummary(
+  document: string,
+  settings: AppSettings
+): Promise<string | null> {
+  if (!settings.apiKey && settings.provider !== "ollama") {
+    return null
+  }
+
+  try {
+    const model = getModel(settings)
+    const systemPrompt = getSummaryPrompt(document)
+
+    const result = streamText({
+      model,
+      system: systemPrompt,
+      messages: [{ role: "user", content: "Summarize this document." }],
+    })
+
+    let summary = ""
+    for await (const chunk of result.textStream) {
+      summary += chunk
+    }
+
+    return summary.trim().slice(0, 100)
+  } catch (error) {
+    console.error("Failed to generate summary:", error)
+    return null
   }
 }
