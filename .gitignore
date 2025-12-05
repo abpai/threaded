@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .npm-cache
 .claude
+.playwright-mcp
+.wrangler
+.dev.vars

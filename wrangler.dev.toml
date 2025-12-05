@@ -3,22 +3,18 @@ main = "worker/index.ts"
 compatibility_date = "2025-12-04"
 compatibility_flags = ["nodejs_compat"]
 
-[build]
-command = "npm run build"
+# No [build] section - skip asset rebuilding for local dev
+# Vite dev server handles frontend, Worker only serves API
 
 [assets]
 directory = "dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 
-# D1 Database binding
-# To create the database, run:
-#   npx wrangler d1 create threaded-db
-# Then update the database_id below with the returned ID
 [[d1_databases]]
 binding = "DB"
 database_name = "threaded-db"
-database_id = "6799fae2-cb90-4d83-a4ac-2728d02af970"
+database_id = "YOUR_DATABASE_ID_HERE"
 
-[vars]
-DATALAB_API_KEY = ""
+# Secrets are loaded from .dev.vars file (not committed to git)
+# See .dev.vars.example for required variables
