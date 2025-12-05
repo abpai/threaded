@@ -80,7 +80,7 @@ async function handleUrlParse(request: Request, env: Env): Promise<Response> {
       env.DB,
       url,
       "url",
-      () => parseUrlWithJina(url),
+      () => parseUrlWithJina(url, env.JINA_API_KEY),
       { url }
     )
 
