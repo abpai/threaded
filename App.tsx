@@ -46,7 +46,7 @@ import {
   setCurrentSessionId,
   extractTitle,
 } from "./services/sessionHistory"
-import { generateSessionSummary } from "./services/aiService"
+import { generateSessionSummary, streamThreadResponse } from "./services/aiService"
 import { Thread, ViewState, SourceMetadata, SessionMeta } from "./types"
 
 function getSessionIdFromUrl(): string | null {
@@ -525,7 +525,6 @@ const App: React.FC = () => {
 
     let fullResponse = ""
     try {
-      const { streamThreadResponse } = await import("./services/aiService")
       for await (const chunk of streamThreadResponse(
         currentThread.context,
         markdownContent,

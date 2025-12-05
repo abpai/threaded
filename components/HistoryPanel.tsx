@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from "react"
 import { Clock, Plus, Trash2, FileText, History, ChevronRight } from "lucide-react"
 import { SessionMeta } from "../types"
+import { formatRelativeTime } from "../lib/formatTime"
 
 interface HistoryPanelProps {
   sessions: SessionMeta[]
@@ -57,17 +58,6 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
       onToggle()
     }
   }, [isOpen, onToggle])
-
-  const getTimeString = (timestamp: number) => {
-    const diff = Date.now() - timestamp
-    if (diff < 60000) return "Just now"
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
-    const days = Math.floor(diff / 86400000)
-    if (days === 1) return "Yesterday"
-    if (days < 7) return `${days}d ago`
-    return new Date(timestamp).toLocaleDateString()
-  }
 
   return (
     <>
@@ -174,7 +164,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                     <div className="flex items-center gap-3 mt-2 text-xs text-slate-400 dark:text-neutral-500">
                       <span className="flex items-center gap-1">
                         <Clock size={10} />
-                        {getTimeString(session.lastModified)}
+                        {formatRelativeTime(session.lastModified)}
                       </span>
                     </div>
                   </button>
