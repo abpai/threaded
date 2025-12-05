@@ -20,5 +20,3 @@ binding = "DB"
 database_name = "threaded-db"
 database_id = "6799fae2-cb90-4d83-a4ac-2728d02af970"
 
-[vars]
-DATALAB_API_KEY = ""
