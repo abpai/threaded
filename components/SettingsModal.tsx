@@ -203,13 +203,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-neutral-800">
-        <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-neutral-800">
-          <h2 className="text-lg font-bold text-slate-800 dark:text-neutral-100">Model Settings</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-md bg-white dark:bg-dark-surface rounded-2xl shadow-2xl border border-slate-200 dark:border-dark-border">
+        <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-dark-border">
+          <h2 className="text-lg font-bold text-slate-800 dark:text-zinc-100">Model Settings</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-neutral-800 rounded-full text-slate-500 transition-colors"
+            className="p-2 hover:bg-slate-100 dark:hover:bg-dark-elevated rounded-full text-slate-500 dark:text-zinc-400 transition-colors"
           >
             <X size={20} />
           </button>
@@ -218,14 +218,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         <form onSubmit={handleSave} className="p-6 space-y-4">
           {/* Provider Select */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-neutral-300 mb-1.5">
+            <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
               AI Provider
             </label>
             <div className="relative">
               <select
                 value={settings.provider}
                 onChange={handleProviderChange}
-                className="w-full appearance-none bg-slate-50 dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 text-slate-900 dark:text-neutral-100 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full appearance-none bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
               >
                 {PROVIDERS.map(p => (
                   <option key={p.id} value={p.id}>
@@ -233,7 +233,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </option>
                 ))}
               </select>
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 dark:text-zinc-400">
                 <ChevronDown size={16} />
               </div>
             </div>
@@ -241,10 +241,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* API Key */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-neutral-300 mb-1.5">
+            <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
               API Key{" "}
               {settings.provider === "ollama" && (
-                <span className="text-slate-400 font-normal">(Optional)</span>
+                <span className="text-slate-400 dark:text-zinc-500 font-normal">(Optional)</span>
               )}
             </label>
             <input
@@ -256,16 +256,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   ? "Optional for local Ollama"
                   : `Enter your ${PROVIDERS.find(p => p.id === settings.provider)?.name} API Key`
               }
-              className="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 text-slate-900 dark:text-neutral-100 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
             />
-            <p className="mt-1.5 text-xs text-slate-500 dark:text-neutral-400">
+            <p className="mt-1.5 text-xs text-slate-500 dark:text-zinc-400">
               {API_KEY_LINKS[settings.provider] && (
                 <>
                   <a
                     href={API_KEY_LINKS[settings.provider]!.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 dark:text-blue-400 hover:underline"
+                    className="text-cyan-600 dark:text-accent hover:underline"
                   >
                     {API_KEY_LINKS[settings.provider]!.label} →
                   </a>
@@ -283,7 +283,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Model Name (Searchable Combobox) */}
           <div ref={dropdownRef} className="relative">
-            <label className="block text-sm font-medium text-slate-700 dark:text-neutral-300 mb-1.5">
+            <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
               Model Name
             </label>
             <div className="relative">
@@ -296,13 +296,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 }}
                 onFocus={() => setIsModelListOpen(true)}
                 placeholder="e.g. gpt-4o, gemini-1.5-flash, llama3.2"
-                className="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 text-slate-900 dark:text-neutral-100 rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
               />
               <button
                 type="button"
                 onClick={fetchModels}
                 disabled={(!settings.apiKey && settings.provider !== "ollama") || isLoadingModels}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-blue-500 disabled:opacity-50 disabled:hover:text-slate-400 transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-accent disabled:opacity-50 disabled:hover:text-slate-400 transition-colors"
                 title="Fetch models from provider"
               >
                 {isLoadingModels ? (
@@ -315,7 +315,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
             {/* Dropdown List */}
             {isModelListOpen && (
-              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-dark-elevated border border-slate-200 dark:border-dark-border rounded-xl shadow-xl max-h-48 overflow-y-auto">
                 {filteredModels.length > 0 ? (
                   filteredModels.map(model => (
                     <button
@@ -325,14 +325,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         setSettings({ ...settings, modelId: model })
                         setIsModelListOpen(false)
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-neutral-200 hover:bg-slate-100 dark:hover:bg-neutral-700 flex items-center justify-between"
+                      className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-700 flex items-center justify-between"
                     >
                       <span>{model}</span>
-                      {settings.modelId === model && <Check size={14} className="text-blue-500" />}
+                      {settings.modelId === model && <Check size={14} className="text-accent" />}
                     </button>
                   ))
                 ) : (
-                  <div className="px-4 py-3 text-xs text-slate-500 text-center">
+                  <div className="px-4 py-3 text-xs text-slate-500 dark:text-zinc-500 text-center">
                     No matching models found.
                   </div>
                 )}
@@ -343,9 +343,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* Base URL (Optional for OpenAI, Required for Ollama) */}
           {(settings.provider === "openai" || settings.provider === "ollama") && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-neutral-300 mb-1.5">
+              <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
                 Base URL{" "}
-                <span className="text-slate-400 font-normal">
+                <span className="text-slate-400 dark:text-zinc-500 font-normal">
                   {settings.provider === "ollama" ? "(Required)" : "(Optional)"}
                 </span>
               </label>
@@ -358,7 +358,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     ? "http://localhost:11434/v1"
                     : "https://api.openai.com/v1"
                 }
-                className="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 text-slate-900 dark:text-neutral-100 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
               />
             </div>
           )}
@@ -366,7 +366,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+              className="w-full bg-accent-muted hover:bg-accent text-white font-medium py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
             >
               <Save size={18} />
               Save Settings

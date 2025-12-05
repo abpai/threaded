@@ -579,13 +579,14 @@ const App: React.FC = () => {
           onSaveSettings={saveSettings}
           isDarkMode={isDarkMode}
           onToggleDarkMode={toggleDarkMode}
+          onToggleHistory={() => setIsHistoryOpen(prev => !prev)}
         />
       </>
     )
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-white dark:bg-neutral-950 transition-colors duration-300">
+    <div className="flex flex-col h-screen overflow-hidden bg-white dark:bg-dark-base transition-colors duration-300">
       {/* History Panel */}
       <HistoryPanel
         sessions={sessionHistory}
@@ -611,27 +612,27 @@ const App: React.FC = () => {
           {/* Scrollable Content Area */}
           <div className="flex-1 overflow-y-auto w-full">
             <div className="max-w-[720px] mx-auto px-8 py-16">
-              <header className="mb-8 flex items-center justify-between sticky top-0 z-10 py-3 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-sm -mx-4 px-4">
+              <header className="mb-8 flex items-center justify-between sticky top-0 z-10 py-3 bg-white/90 dark:bg-dark-base/90 backdrop-blur-sm -mx-4 px-4">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setIsHistoryOpen(prev => !prev)}
-                    className="p-1.5 rounded-md text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300 hover:bg-slate-100 dark:hover:bg-neutral-800 transition-colors"
+                    className="p-1.5 rounded-md text-slate-400 dark:text-zinc-500 hover:text-slate-600 dark:hover:text-zinc-300 hover:bg-slate-100 dark:hover:bg-dark-elevated transition-colors"
                     title="History"
                   >
                     <History size={18} />
                   </button>
-                  <span className="text-slate-200 dark:text-neutral-700">|</span>
+                  <span className="text-slate-200 dark:text-zinc-700">|</span>
                   <button
                     onClick={handleNewSession}
-                    className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-neutral-200 transition-colors"
+                    className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 transition-colors"
                   >
                     <PenTool size={15} />
                     <span>New</span>
                   </button>
                   {sourceMetadata && (
                     <>
-                      <span className="text-slate-300 dark:text-neutral-600">·</span>
-                      <span className="text-sm text-slate-400 dark:text-neutral-500 truncate max-w-[180px]">
+                      <span className="text-slate-300 dark:text-zinc-600">·</span>
+                      <span className="text-sm text-slate-400 dark:text-zinc-500 truncate max-w-[180px]">
                         {sourceMetadata.type === "paste"
                           ? "Pasted"
                           : sourceMetadata.type === "url"
@@ -649,7 +650,7 @@ const App: React.FC = () => {
                   {threadManager.threads.length > 0 && (
                     <button
                       onClick={handleViewThreadList}
-                      className="text-sm text-slate-600 dark:text-neutral-300 hover:text-slate-900 dark:hover:text-white px-2.5 py-1 rounded-full font-medium transition-colors hover:bg-slate-100 dark:hover:bg-neutral-800"
+                      className="text-sm text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-zinc-100 px-2.5 py-1 rounded-full font-medium transition-colors hover:bg-slate-100 dark:hover:bg-dark-elevated"
                     >
                       {threadManager.threads.length} thread
                       {threadManager.threads.length !== 1 && "s"}
@@ -661,7 +662,7 @@ const App: React.FC = () => {
                   {quotes.length > 0 && (
                     <button
                       onClick={() => setViewState(ViewState.QUOTES)}
-                      className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-neutral-800 text-amber-500 dark:text-amber-400 transition-colors"
+                      className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-dark-elevated text-amber-500 dark:text-amber-400 transition-colors"
                       title={`${quotes.length} saved quote${quotes.length !== 1 ? "s" : ""}`}
                     >
                       <Bookmark size={18} />
@@ -670,7 +671,7 @@ const App: React.FC = () => {
                   <button
                     onClick={handleShare}
                     disabled={isCreatingSession}
-                    className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-neutral-200 transition-colors disabled:opacity-50"
+                    className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-dark-elevated text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 transition-colors disabled:opacity-50"
                     title="Share"
                   >
                     {isCreatingSession ? (
@@ -681,7 +682,7 @@ const App: React.FC = () => {
                   </button>
                   <button
                     onClick={toggleDarkMode}
-                    className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-neutral-200 transition-colors"
+                    className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-dark-elevated text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 transition-colors"
                     title={isDarkMode ? "Light mode" : "Dark mode"}
                   >
                     {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
@@ -689,19 +690,19 @@ const App: React.FC = () => {
                   <div className="relative" ref={moreMenuRef}>
                     <button
                       onClick={() => setShowMoreMenu(!showMoreMenu)}
-                      className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-neutral-200 transition-colors"
+                      className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-dark-elevated text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 transition-colors"
                       title="More options"
                     >
                       <MoreHorizontal size={18} />
                     </button>
                     {showMoreMenu && (
-                      <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-neutral-900 rounded-lg shadow-lg border border-slate-200 dark:border-neutral-700 py-1 z-50">
+                      <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-dark-surface rounded-lg shadow-lg border border-slate-200 dark:border-dark-border py-1 z-50">
                         <button
                           onClick={() => {
                             handleExport()
                             setShowMoreMenu(false)
                           }}
-                          className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-neutral-300 hover:bg-slate-100 dark:hover:bg-neutral-800 flex items-center gap-3"
+                          className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-dark-elevated flex items-center gap-3"
                         >
                           <Download size={16} />
                           Export
@@ -712,7 +713,7 @@ const App: React.FC = () => {
                               setViewState(ViewState.QUOTES)
                               setShowMoreMenu(false)
                             }}
-                            className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-neutral-300 hover:bg-slate-100 dark:hover:bg-neutral-800 flex items-center gap-3"
+                            className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-dark-elevated flex items-center gap-3"
                           >
                             <Bookmark size={16} />
                             Saved quotes
@@ -723,14 +724,14 @@ const App: React.FC = () => {
                             openSettings()
                             setShowMoreMenu(false)
                           }}
-                          className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-neutral-300 hover:bg-slate-100 dark:hover:bg-neutral-800 flex items-center gap-3"
+                          className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-dark-elevated flex items-center gap-3"
                         >
                           <SettingsIcon size={16} />
                           Settings
                         </button>
                         {sessionId && session.isOwner && (
                           <>
-                            <div className="my-1 border-t border-slate-200 dark:border-neutral-700" />
+                            <div className="my-1 border-t border-slate-200 dark:border-dark-border" />
                             <button
                               onClick={() => {
                                 handleDeleteSession()
@@ -772,7 +773,7 @@ const App: React.FC = () => {
                 >
                   <MarkdownRenderer
                     content={markdownContent}
-                    className="font-serif text-slate-800 dark:text-neutral-100"
+                    className="font-serif text-slate-800 dark:text-zinc-100"
                   />
                 </Suspense>
               </div>
@@ -786,9 +787,9 @@ const App: React.FC = () => {
               className={`transition-all duration-300 ${isSidebarOpen ? "max-w-sm" : "max-w-xl"} w-full pointer-events-auto`}
             >
               <form onSubmit={handleCreateGeneralThread} className="relative group">
-                <div className="absolute inset-0 bg-slate-900/5 dark:bg-neutral-100/5 rounded-full blur-md transform translate-y-2 group-hover:translate-y-1 transition-transform"></div>
-                <div className="relative bg-white dark:bg-neutral-900 rounded-full shadow-xl border border-slate-200 dark:border-neutral-700 flex items-center p-1.5 transition-all focus-within:border-blue-500 focus-within:shadow-blue-100 dark:focus-within:shadow-none">
-                  <div className="pl-4 pr-2 text-slate-400">
+                <div className="absolute inset-0 bg-slate-900/5 dark:bg-zinc-100/5 rounded-full blur-md transform translate-y-2 group-hover:translate-y-1 transition-transform"></div>
+                <div className="relative bg-white dark:bg-dark-surface rounded-full shadow-xl border border-slate-200 dark:border-dark-border flex items-center p-1.5 transition-all focus-within:border-accent dark:focus-within:border-accent focus-within:shadow-blue-100 dark:focus-within:shadow-none">
+                  <div className="pl-4 pr-2 text-slate-400 dark:text-zinc-500">
                     <MessageCircle size={20} />
                   </div>
                   <input
@@ -796,12 +797,12 @@ const App: React.FC = () => {
                     value={generalInputValue}
                     onChange={e => setGeneralInputValue(e.target.value)}
                     placeholder="Ask a question about the whole document..."
-                    className="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-sm text-slate-700 dark:text-neutral-200 placeholder:text-slate-400 py-2.5"
+                    className="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-sm text-slate-700 dark:text-zinc-200 placeholder:text-slate-400 dark:placeholder:text-zinc-500 py-2.5"
                   />
                   <button
                     type="submit"
                     disabled={!generalInputValue.trim()}
-                    className="p-2 bg-slate-900 dark:bg-neutral-700 text-white rounded-full hover:bg-slate-800 dark:hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
+                    className="p-2 bg-slate-900 dark:bg-zinc-700 text-white rounded-full hover:bg-slate-800 dark:hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
                   >
                     <ArrowRight size={16} />
                   </button>
@@ -822,7 +823,7 @@ const App: React.FC = () => {
 
         {/* Right Pane: Thread Sidebar */}
         <div
-          className={`fixed inset-y-0 right-0 w-[450px] transform transition-transform duration-300 ease-in-out shadow-2xl z-40 bg-white dark:bg-neutral-900 border-l border-slate-200 dark:border-neutral-800 ${isSidebarOpen ? "translate-x-0" : "translate-x-full"}`}
+          className={`fixed inset-y-0 right-0 w-[450px] transform transition-transform duration-300 ease-in-out shadow-2xl z-40 bg-white dark:bg-dark-surface border-l border-slate-200 dark:border-dark-border ${isSidebarOpen ? "translate-x-0" : "translate-x-full"}`}
         >
           {threadManager.activeThreadId ? (
             <ThreadPanel

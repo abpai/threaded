@@ -13,7 +13,7 @@ export function useDarkMode(): UseDarkModeResult {
     if (stored !== null) {
       return stored === "true"
     }
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
+    return false
   })
 
   useEffect(() => {

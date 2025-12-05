@@ -25,18 +25,18 @@ const ThreadList: React.FC<ThreadListProps> = ({ threads, onSelectThread, onClos
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 dark:bg-neutral-950 transition-colors duration-300">
+    <div className="flex flex-col h-full bg-slate-50 dark:bg-dark-base transition-colors duration-300">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+      <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-dark-border bg-white dark:bg-dark-surface">
         <div>
-          <h3 className="font-bold text-slate-800 dark:text-neutral-100 text-lg">Discussions</h3>
-          <p className="text-xs text-slate-500 dark:text-neutral-400">
+          <h3 className="font-bold text-slate-800 dark:text-zinc-100 text-lg">Discussions</h3>
+          <p className="text-xs text-slate-500 dark:text-zinc-400">
             {threads.length} active threads
           </p>
         </div>
         <button
           onClick={onClose}
-          className="p-2 hover:bg-slate-100 dark:hover:bg-neutral-800 rounded-full text-slate-500 dark:text-neutral-400 transition-colors"
+          className="p-2 hover:bg-slate-100 dark:hover:bg-dark-elevated rounded-full text-slate-500 dark:text-zinc-400 transition-colors"
         >
           <X size={20} />
         </button>
@@ -45,8 +45,8 @@ const ThreadList: React.FC<ThreadListProps> = ({ threads, onSelectThread, onClos
       {/* List Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {sortedThreads.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-neutral-500 text-center">
-            <MessageSquare size={48} className="mb-4 text-slate-300 dark:text-neutral-600" />
+          <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-zinc-500 text-center">
+            <MessageSquare size={48} className="mb-4 text-slate-300 dark:text-zinc-600" />
             <p>No active threads yet.</p>
             <p className="text-sm mt-2">Highlight text or ask a general question to start.</p>
           </div>
@@ -61,32 +61,32 @@ const ThreadList: React.FC<ThreadListProps> = ({ threads, onSelectThread, onClos
               <button
                 key={thread.id}
                 onClick={() => onSelectThread(thread.id)}
-                className="w-full text-left bg-white dark:bg-neutral-900 p-4 rounded-xl border border-slate-200 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
+                className="w-full text-left bg-white dark:bg-dark-surface p-4 rounded-xl border border-slate-200 dark:border-dark-border shadow-sm hover:shadow-md hover:border-cyan-300 dark:hover:border-accent transition-all group"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span
-                      className={`p-1.5 rounded-md ${isGeneral ? "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400" : "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"}`}
+                      className={`p-1.5 rounded-md ${isGeneral ? "bg-indigo-100 text-indigo-600 dark:bg-accent-glow dark:text-accent" : "bg-cyan-100 text-cyan-600 dark:bg-accent-glow dark:text-accent"}`}
                     >
                       {isGeneral ? <FileText size={14} /> : <MessageSquare size={14} />}
                     </span>
-                    <span className="font-semibold text-slate-700 dark:text-neutral-200 text-sm truncate max-w-[180px]">
+                    <span className="font-semibold text-slate-700 dark:text-zinc-200 text-sm truncate max-w-[180px]">
                       {thread.snippet}
                     </span>
                   </div>
-                  <div className="flex items-center text-xs text-slate-400 dark:text-neutral-500">
+                  <div className="flex items-center text-xs text-slate-400 dark:text-zinc-500">
                     <Clock size={10} className="mr-1" />
                     {getTimeString(lastMessage?.timestamp || thread.createdAt)}
                   </div>
                 </div>
 
-                <div className="text-sm text-slate-600 dark:text-neutral-400 line-clamp-2 leading-relaxed mb-3 h-[2.5em]">
+                <div className="text-sm text-slate-600 dark:text-zinc-400 line-clamp-2 leading-relaxed mb-3 h-[2.5em]">
                   {lastMessage ? (
                     <span
                       className={
                         lastMessage.role === "user"
-                          ? "text-slate-500 dark:text-neutral-500"
-                          : "text-slate-800 dark:text-neutral-300"
+                          ? "text-slate-500 dark:text-zinc-500"
+                          : "text-slate-800 dark:text-zinc-300"
                       }
                     >
                       {lastMessage.role === "user" ? "You: " : "AI: "}
@@ -97,7 +97,7 @@ const ThreadList: React.FC<ThreadListProps> = ({ threads, onSelectThread, onClos
                   )}
                 </div>
 
-                <div className="flex items-center text-blue-600 dark:text-blue-400 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center text-cyan-600 dark:text-accent text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                   Continue discussion <ArrowRight size={12} className="ml-1" />
                 </div>
               </button>

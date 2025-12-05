@@ -42,34 +42,34 @@ const Tooltip: React.FC<TooltipProps> = ({ rect, text, onAction, onSaveQuote }) 
 
   return (
     <div
-      className="fixed z-50 flex items-center gap-1 p-1 bg-slate-900 dark:bg-neutral-800 text-white rounded-lg shadow-xl transform -translate-x-1/2 animate-in fade-in zoom-in duration-200 border border-slate-700"
+      className="fixed z-50 flex items-center gap-1 p-1 bg-slate-900 dark:bg-dark-elevated text-white rounded-lg shadow-xl transform -translate-x-1/2 animate-in fade-in zoom-in duration-200 border border-slate-700 dark:border-dark-border"
       style={{ top: `${top}px`, left: `${left}px` }}
       onMouseDown={e => e.preventDefault()}
     >
       <button
         onClick={() => onAction("discuss")}
-        className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 rounded-md transition-colors text-sm font-medium"
+        className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 dark:hover:bg-zinc-600 rounded-md transition-colors text-sm font-medium"
       >
         <MessageSquarePlus size={16} />
         <span>Discuss</span>
       </button>
 
-      <div className="w-px h-4 bg-slate-700 mx-1"></div>
+      <div className="w-px h-4 bg-slate-700 dark:bg-zinc-600 mx-1"></div>
 
       <button
         onClick={() => onAction("summarize")}
-        className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 rounded-md transition-colors text-sm font-medium"
+        className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 dark:hover:bg-zinc-600 rounded-md transition-colors text-sm font-medium"
       >
-        <Sparkles size={16} className="text-yellow-400" />
+        <Sparkles size={16} className="text-accent" />
         <span>Explain</span>
       </button>
 
-      <div className="w-px h-4 bg-slate-700 mx-1"></div>
+      <div className="w-px h-4 bg-slate-700 dark:bg-zinc-600 mx-1"></div>
 
       {onSaveQuote && (
         <button
           onClick={handleSave}
-          className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 rounded-md transition-colors text-sm font-medium"
+          className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 dark:hover:bg-zinc-600 rounded-md transition-colors text-sm font-medium"
           title="Save Quote"
         >
           <Bookmark
@@ -80,20 +80,20 @@ const Tooltip: React.FC<TooltipProps> = ({ rect, text, onAction, onSaveQuote }) 
         </button>
       )}
 
-      {onSaveQuote && <div className="w-px h-4 bg-slate-700 mx-1"></div>}
+      {onSaveQuote && <div className="w-px h-4 bg-slate-700 dark:bg-zinc-600 mx-1"></div>}
 
       <button
         onClick={handleCopy}
-        className="p-1.5 hover:bg-slate-700 rounded-md transition-colors text-slate-400 hover:text-white"
+        className="p-1.5 hover:bg-slate-700 dark:hover:bg-zinc-600 rounded-md transition-colors text-slate-400 hover:text-white"
         title="Copy"
       >
         {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
       </button>
 
       {positionAbove ? (
-        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-slate-900 dark:border-t-neutral-800" />
+        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-slate-900 dark:border-t-dark-elevated" />
       ) : (
-        <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[6px] border-b-slate-900 dark:border-b-neutral-800" />
+        <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[6px] border-b-slate-900 dark:border-b-dark-elevated" />
       )}
     </div>
   )

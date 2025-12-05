@@ -46,8 +46,17 @@
         theme: {
           extend: {
             colors: {
-              neutral: {
-                950: '#0a0a0a',
+              // Dark mode palette - 3 distinct surface levels + cyan accent
+              dark: {
+                base: '#09090b',      // zinc-950 - deepest background
+                surface: '#18181b',   // zinc-900 - cards, panels
+                elevated: '#27272a',  // zinc-800 - inputs, interactive
+                border: '#3f3f46',    // zinc-700 - visible borders
+              },
+              accent: {
+                DEFAULT: '#22d3ee',   // cyan-400 - primary accent
+                muted: '#0891b2',     // cyan-600 - hover, secondary
+                glow: 'rgba(34, 211, 238, 0.15)', // subtle highlight bg
               }
             }
           }
@@ -74,7 +83,10 @@
         border-radius: 3px;
       }
       .dark ::-webkit-scrollbar-thumb {
-        background: #525252;
+        background: #3f3f46;
+      }
+      .dark ::-webkit-scrollbar-thumb:hover {
+        background: #52525b;
       }
       ::-webkit-scrollbar-thumb:hover {
         background: #94a3b8;
@@ -89,7 +101,7 @@
         letter-spacing: 0.01em;
       }
       .dark .markdown-content p {
-        color: #d4d4d4;
+        color: #d4d4d8;
       }
 
       .markdown-content h1, .markdown-content h2, .markdown-content h3 {
@@ -117,8 +129,8 @@
         margin: 1.5em 0;
       }
       .dark .markdown-content blockquote {
-        color: #a3a3a3;
-        border-left-color: #60a5fa;
+        color: #d4d4d8;
+        border-left-color: #22d3ee;
       }
 
       .markdown-content ul, .markdown-content ol {
@@ -128,7 +140,7 @@
       }
       .dark .markdown-content ul,
       .dark .markdown-content ol {
-        color: #d4d4d4;
+        color: #d4d4d8;
       }
 
       .markdown-content li {
@@ -145,8 +157,8 @@
         margin-bottom: 1.5em;
       }
       .dark .markdown-content pre {
-        background: #171717;
-        border: 1px solid #262626;
+        background: #18181b;
+        border: 1px solid #3f3f46;
       }
 
       .markdown-content code {
@@ -158,8 +170,8 @@
         font-size: 0.875em;
       }
       .dark .markdown-content code {
-        background: #262626;
-        color: #e5e5e5;
+        background: #27272a;
+        color: #e4e4e7;
       }
 
       /* Reset code styling inside pre blocks for highlight.js */
@@ -182,7 +194,7 @@
         background: #f8fafc;
       }
       .dark .markdown-content thead {
-        background: #18181b;
+        background: #27272a;
       }
       .markdown-content th,
       .markdown-content td {
@@ -193,8 +205,8 @@
       }
       .dark .markdown-content th,
       .dark .markdown-content td {
-        border-color: #27272a;
-        color: #e5e5e5;
+        border-color: #3f3f46;
+        color: #e4e4e7;
       }
       .markdown-content th {
         font-weight: 700;
@@ -206,10 +218,10 @@
         background: #ffffff;
       }
       .dark .markdown-content tbody tr:nth-child(odd) {
-        background: #0f0f10;
+        background: #18181b;
       }
       .dark .markdown-content tbody tr:nth-child(even) {
-        background: #131313;
+        background: #09090b;
       }
 
       /* Chat bubble markdown - compact styles */
@@ -262,7 +274,7 @@
         color: #1e3a8a;
       }
       .dark ::selection {
-        background: #404040;
+        background: rgba(34, 211, 238, 0.3);
         color: #fafafa;
       }
     </style>
@@ -283,7 +295,7 @@
 }
 </script>
 </head>
-  <body class="bg-white dark:bg-neutral-950 text-slate-800 dark:text-neutral-200 antialiased h-screen overflow-hidden transition-colors duration-300">
+  <body class="bg-white dark:bg-dark-base text-slate-800 dark:text-zinc-200 antialiased h-screen overflow-hidden transition-colors duration-300">
     <div id="root" class="h-full"></div>
   <script type="module" src="/index.tsx"></script>
 </body>
