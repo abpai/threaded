@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from "react"
 import { streamThreadResponse, AIError, ThreadMode } from "../services/aiService"
 import { AppSettings, Message } from "../types"
 import { UseSessionResult } from "./useSession"
+import { generateId } from "../lib/id"
 
 export interface StreamOptions {
   threadId: string
@@ -14,6 +15,7 @@ export interface StreamOptions {
 
 interface ThreadManagerLike {
   addMessageToThread: (threadId: string, message: Message) => void
+  replaceMessageId: (threadId: string, oldId: string, newId: string) => void
   appendToLastMessage: (threadId: string, chunk: string) => void
   updateLastMessage: (threadId: string, text: string) => void
 }
@@ -37,7 +39,9 @@ export function useAiStreaming(
       const { threadId, context, markdownContent, messages, userMessage, mode } = options
 
       // Add placeholder AI message
+      const placeholderId = generateId()
       threadManager.addMessageToThread(threadId, {
+        id: placeholderId,
         role: "model",
         text: "",
         timestamp: Date.now(),
@@ -64,7 +68,10 @@ export function useAiStreaming(
 
         // Save to API if session exists (addMessage handles fork for non-owners)
         if (session && fullResponse) {
-          await session.addMessage(threadId, "model", fullResponse)
+          const savedId = await session.addMessage(threadId, "model", fullResponse)
+          if (savedId && savedId !== placeholderId) {
+            threadManager.replaceMessageId(threadId, placeholderId, savedId)
+          }
         }
 
         return fullResponse

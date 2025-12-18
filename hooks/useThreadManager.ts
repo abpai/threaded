@@ -11,9 +11,12 @@ export interface UseThreadManagerResult {
   updateThreadId: (oldId: string, newId: string) => void
   deleteThread: (threadId: string) => void
   addMessageToThread: (threadId: string, message: Message) => void
+  replaceMessageId: (threadId: string, oldId: string, newId: string) => void
   appendToLastMessage: (threadId: string, chunk: string) => void
   updateLastMessage: (threadId: string, text: string) => void
   replaceLastMessage: (threadId: string, message: Message) => void
+  updateMessageToThread: (threadId: string, messageId: string, text: string) => void
+  truncateThreadAfter: (threadId: string, messageId: string) => void
 }
 
 export function useThreadManager(initialThreads: Thread[] = []): UseThreadManagerResult {
@@ -46,6 +49,16 @@ export function useThreadManager(initialThreads: Thread[] = []): UseThreadManage
           return { ...t, messages: [...t.messages, message] }
         }
         return t
+      })
+    )
+  }, [])
+
+  const replaceMessageId = useCallback((threadId: string, oldId: string, newId: string) => {
+    setThreads(prev =>
+      prev.map(t => {
+        if (t.id !== threadId) return t
+        const messages = t.messages.map(m => (m.id === oldId ? { ...m, id: newId } : m))
+        return { ...t, messages }
       })
     )
   }, [])
@@ -96,6 +109,33 @@ export function useThreadManager(initialThreads: Thread[] = []): UseThreadManage
     )
   }, [])
 
+  const updateMessageToThread = useCallback((threadId: string, messageId: string, text: string) => {
+    setThreads(prev =>
+      prev.map(t => {
+        if (t.id === threadId) {
+          const messages = t.messages.map(m => (m.id === messageId ? { ...m, text } : m))
+          return { ...t, messages }
+        }
+        return t
+      })
+    )
+  }, [])
+
+  const truncateThreadAfter = useCallback((threadId: string, messageId: string) => {
+    setThreads(prev =>
+      prev.map(t => {
+        if (t.id === threadId) {
+          const messageIndex = t.messages.findIndex(m => m.id === messageId)
+          if (messageIndex === -1) return t
+
+          // Keep everything up to and including the message
+          return { ...t, messages: t.messages.slice(0, messageIndex + 1) }
+        }
+        return t
+      })
+    )
+  }, [])
+
   return {
     threads,
     activeThreadId,
@@ -106,8 +146,11 @@ export function useThreadManager(initialThreads: Thread[] = []): UseThreadManage
     updateThreadId,
     deleteThread,
     addMessageToThread,
+    replaceMessageId,
     appendToLastMessage,
     updateLastMessage,
     replaceLastMessage,
+    updateMessageToThread,
+    truncateThreadAfter,
   }
 }

@@ -7,7 +7,12 @@ import {
   handleDeleteSession,
   handleForkSession,
 } from "./routes/sessions"
-import { handleAddThread, handleAddMessage } from "./routes/threads"
+import {
+  handleAddThread,
+  handleAddMessage,
+  handleUpdateMessage,
+  handleTruncateThread,
+} from "./routes/threads"
 import { handleParse } from "./routes/parse"
 
 async function handleApiRequest(request: Request, env: Env, url: URL): Promise<Response> {
@@ -52,6 +57,28 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
   )
   if (addMessageMatch && method === "POST") {
     return handleAddMessage(request, env, addMessageMatch[1], addMessageMatch[2])
+  }
+
+  // PUT /api/sessions/:id/threads/:tid/messages/:mid - Update message
+  const updateMessageMatch = path.match(
+    /^\/api\/sessions\/([a-zA-Z0-9_-]+)\/threads\/([a-zA-Z0-9_-]+)\/messages\/([a-zA-Z0-9_-]+)$/
+  )
+  if (updateMessageMatch && method === "PUT") {
+    return handleUpdateMessage(
+      request,
+      env,
+      updateMessageMatch[1],
+      updateMessageMatch[2],
+      updateMessageMatch[3]
+    )
+  }
+
+  // DELETE /api/sessions/:id/threads/:tid/messages - Truncate thread (delete messages after X)
+  const truncateThreadMatch = path.match(
+    /^\/api\/sessions\/([a-zA-Z0-9_-]+)\/threads\/([a-zA-Z0-9_-]+)\/messages$/
+  )
+  if (truncateThreadMatch && method === "DELETE") {
+    return handleTruncateThread(request, env, truncateThreadMatch[1], truncateThreadMatch[2])
   }
 
   // POST /api/sessions/:id/fork - Fork session

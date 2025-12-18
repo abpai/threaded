@@ -10,6 +10,8 @@ import {
   RefreshCw,
   AlertCircle,
   Settings,
+  Pencil,
+  Check,
 } from "lucide-react"
 import { Thread } from "../types"
 
@@ -24,6 +26,8 @@ interface ThreadPanelProps {
   onDelete: () => void
   onRetry?: () => void
   onOpenSettings?: () => void
+  onUpdateMessage?: (messageId: string, newText: string) => void
+  isReadOnly?: boolean
 }
 
 const isErrorMessage = (text: string): boolean => {
@@ -46,24 +50,110 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
   onDelete,
   onRetry,
   onOpenSettings,
+  onUpdateMessage,
+  isReadOnly = false,
 }) => {
   const [inputValue, setInputValue] = useState("")
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState("")
+  const [editWidthPx, setEditWidthPx] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesScrollRef = useRef<HTMLDivElement>(null)
+  const messageBubbleRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const scrollRafRef = useRef<number | null>(null)
+  const prevIsLoadingRef = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  const isNearBottom = () => {
+    const el = messagesScrollRef.current
+    if (!el) return true
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 80
   }
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [thread?.messages, isLoading])
+  const scheduleScrollToBottom = (behavior: "auto" | "smooth") => {
+    if (scrollRafRef.current != null) return
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null
+      messagesEndRef.current?.scrollIntoView({ behavior })
+    })
+  }
+
+  const scrollMessageToTop = (messageId: string, behavior: "auto" | "smooth" = "smooth") => {
+    const container = messagesScrollRef.current
+    const bubble = messageBubbleRefs.current[messageId]
+    if (!container || !bubble) return
+
+    const containerRect = container.getBoundingClientRect()
+    const bubbleRect = bubble.getBoundingClientRect()
+    const topPadding = 12
+    const targetTop = container.scrollTop + (bubbleRect.top - containerRect.top) - topPadding
+
+    container.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior,
+    })
+  }
+
+  const threadId = thread?.id
+  const messageCount = thread?.messages.length ?? 0
+  const lastMsg = messageCount ? thread?.messages[messageCount - 1] : undefined
+  const lastMessageText = lastMsg?.text
+  const lastMessageRole = lastMsg?.role
+  const userMessageCount = thread?.messages.reduce(
+    (count, m) => count + (m.role === "user" ? 1 : 0),
+    0
+  )
 
   useEffect(() => {
-    if (thread?.id) {
+    if (!threadId) return
+    if (isLoading) {
+      // If we're about to anchor a follow-up question, don't also auto-scroll to bottom.
+      if (lastMessageRole === "user" && (userMessageCount ?? 0) >= 2) return
+      if (isNearBottom()) scheduleScrollToBottom("auto")
+      return
+    }
+    scheduleScrollToBottom("smooth")
+  }, [messageCount, lastMessageText, lastMessageRole, userMessageCount, isLoading, threadId])
+
+  useEffect(() => {
+    const wasLoading = prevIsLoadingRef.current
+    prevIsLoadingRef.current = isLoading
+
+    // Cursor-like behavior: when a follow-up is sent and streaming starts,
+    // scroll the user's question to the top of the panel.
+    if (!thread || wasLoading || !isLoading) return
+
+    const userMessages = thread.messages.filter(m => m.role === "user")
+    if (userMessages.length < 2) return
+
+    const lastMessage = thread.messages[thread.messages.length - 1]
+    if (!lastMessage || lastMessage.role !== "user") return
+
+    // Cancel any pending bottom-scroll from other effects.
+    if (scrollRafRef.current != null) {
+      cancelAnimationFrame(scrollRafRef.current)
+      scrollRafRef.current = null
+    }
+
+    requestAnimationFrame(() => {
+      scrollMessageToTop(lastMessage.id, "smooth")
+    })
+  }, [isLoading, thread])
+
+  useEffect(() => {
+    return () => {
+      if (scrollRafRef.current != null) {
+        cancelAnimationFrame(scrollRafRef.current)
+        scrollRafRef.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (thread?.id && !editingMessageId) {
       setTimeout(() => inputRef.current?.focus(), 100)
     }
-  }, [thread?.id])
+  }, [thread?.id, editingMessageId])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -72,11 +162,39 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
     setInputValue("")
   }
 
+  const startEditing = (messageId: string, text: string) => {
+    const bubble = messageBubbleRefs.current[messageId]
+    if (bubble) {
+      setEditWidthPx(bubble.getBoundingClientRect().width)
+    } else {
+      setEditWidthPx(null)
+    }
+    setEditingMessageId(messageId)
+    setEditValue(text)
+  }
+
+  const cancelEditing = () => {
+    setEditingMessageId(null)
+    setEditValue("")
+    setEditWidthPx(null)
+  }
+
+  const saveEdit = (messageId: string) => {
+    if (!editValue.trim() || !onUpdateMessage) return
+    onUpdateMessage(messageId, editValue)
+    setEditingMessageId(null)
+    setEditValue("")
+    setEditWidthPx(null)
+  }
+
   if (!thread) {
     return null
   }
 
   const isGeneralThread = thread.context === "Entire Document"
+  const lastMessage = thread.messages[thread.messages.length - 1]
+  const showTypingIndicator =
+    isLoading && (!lastMessage || lastMessage.role !== "model" || !lastMessage.text)
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-dark-surface transition-colors duration-300">
@@ -100,13 +218,15 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <button
-            onClick={onDelete}
-            className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full text-slate-400 hover:text-red-500 dark:text-zinc-500 dark:hover:text-red-400 transition-colors"
-            title="Delete thread"
-          >
-            <Trash2 size={18} />
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={onDelete}
+              className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full text-slate-400 hover:text-red-500 dark:text-zinc-500 dark:hover:text-red-400 transition-colors"
+              title="Delete thread"
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
           <button
             onClick={onClose}
             className="p-2 hover:bg-slate-100 dark:hover:bg-dark-elevated rounded-full text-slate-500 dark:text-zinc-400 transition-colors"
@@ -117,7 +237,10 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-slate-50/50 dark:bg-dark-base/50">
+      <div
+        ref={messagesScrollRef}
+        className="flex-1 overflow-y-auto p-4 space-y-6 bg-slate-50/50 dark:bg-dark-base/50"
+      >
         {/* Context Card - Only show if not a general thread */}
         {!isGeneralThread && (
           <div className="bg-white dark:bg-dark-elevated border border-slate-200 dark:border-dark-border rounded-lg p-4 shadow-sm text-sm relative">
@@ -134,6 +257,7 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
         {thread.messages.map((msg, index) => {
           const isError = msg.role === "model" && isErrorMessage(msg.text)
           const isLastMessage = index === thread.messages.length - 1
+          const isEditing = msg.id === editingMessageId
 
           if (isLastMessage && isLoading && msg.role === "model" && !msg.text) {
             return null
@@ -142,7 +266,7 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
           return (
             <div
               key={index}
-              className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+              className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"} group`}
             >
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
@@ -163,52 +287,98 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
               </div>
               <div className="flex flex-col gap-2 max-w-[85%]">
                 <div
-                  className={`rounded-2xl p-3 text-sm leading-relaxed shadow-sm overflow-hidden ${
+                  className={`rounded-2xl p-3 text-sm leading-relaxed shadow-sm overflow-hidden relative ${
                     msg.role === "user"
                       ? "bg-slate-800 dark:bg-zinc-700 text-white rounded-tr-none"
                       : isError
                         ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-tl-none"
                         : "bg-white dark:bg-dark-elevated border border-slate-100 dark:border-dark-border text-slate-700 dark:text-zinc-200 rounded-tl-none markdown-chat"
                   }`}
+                  ref={el => {
+                    messageBubbleRefs.current[msg.id] = el
+                  }}
+                  style={isEditing && editWidthPx ? { width: `${editWidthPx}px` } : undefined}
                 >
-                  {msg.role === "user" ? (
+                  {isEditing ? (
+                    <div className="flex flex-col gap-2">
+                      <textarea
+                        value={editValue}
+                        onChange={e => setEditValue(e.target.value)}
+                        className="w-full bg-white/5 dark:bg-black/10 border border-transparent rounded-lg px-2 py-1.5 text-[inherit] placeholder:text-white/60 focus:outline-none focus:ring-1 focus:ring-accent/60 resize-none leading-relaxed"
+                        rows={3}
+                        autoFocus
+                        placeholder="Edit message…"
+                      />
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          onClick={cancelEditing}
+                          className="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40 transition-colors"
+                          title="Cancel"
+                        >
+                          <X size={14} />
+                        </button>
+                        <button
+                          onClick={() => saveEdit(msg.id)}
+                          className="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40 transition-colors"
+                          title="Save"
+                        >
+                          <Check size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : msg.role === "user" ? (
                     msg.text
                   ) : isError ? (
                     <span>{msg.text.replace("Error: ", "")}</span>
+                  ) : isLastMessage && isLoading ? (
+                    <span className="whitespace-pre-wrap">{msg.text}</span>
                   ) : (
                     <Suspense fallback={<span className="text-slate-400">...</span>}>
                       <MarkdownRenderer content={msg.text} />
                     </Suspense>
                   )}
                 </div>
-                {isError && isLastMessage && (
-                  <div className="flex items-center gap-3 self-start">
-                    {onRetry && (
-                      <button
-                        onClick={onRetry}
-                        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-accent dark:text-zinc-400 dark:hover:text-accent transition-colors"
-                      >
-                        <RefreshCw size={12} />
-                        <span>Retry</span>
-                      </button>
-                    )}
-                    {onOpenSettings && shouldShowSettingsButton(msg.text) && (
-                      <button
-                        onClick={onOpenSettings}
-                        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-accent dark:text-zinc-400 dark:hover:text-accent transition-colors"
-                      >
-                        <Settings size={12} />
-                        <span>Open Settings</span>
-                      </button>
-                    )}
-                  </div>
-                )}
+
+                {/* Actions Row */}
+                <div className="flex items-center gap-3 self-start h-4">
+                  {msg.role === "user" && !isEditing && !isReadOnly && (
+                    <button
+                      onClick={() => startEditing(msg.id, msg.text)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-xs text-slate-400 dark:text-zinc-500 hover:text-slate-600 dark:hover:text-zinc-300"
+                    >
+                      <Pencil size={12} />
+                      Edit
+                    </button>
+                  )}
+                  {isError && isLastMessage && (
+                    <div className="flex items-center gap-3">
+                      {onRetry && (
+                        <button
+                          onClick={onRetry}
+                          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-accent dark:text-zinc-400 dark:hover:text-accent transition-colors"
+                        >
+                          <RefreshCw size={12} />
+                          <span>Retry</span>
+                        </button>
+                      )}
+                      {onOpenSettings && shouldShowSettingsButton(msg.text) && (
+                        <button
+                          onClick={onOpenSettings}
+                          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-accent dark:text-zinc-400 dark:hover:text-accent transition-colors"
+                        >
+                          <Settings size={12} />
+                          <span>Open Settings</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )
         })}
 
-        {isLoading && (
+        {showTypingIndicator && (
           <div className="flex gap-3">
             <div className="w-8 h-8 rounded-full bg-cyan-100 dark:bg-accent-glow text-cyan-600 dark:text-accent flex items-center justify-center shrink-0 animate-pulse">
               <Sparkles size={16} />

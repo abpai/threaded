@@ -36,6 +36,14 @@ import { useThreadManager } from "./hooks/useThreadManager"
 import { useTextSelection } from "./hooks/useTextSelection"
 import { useAiStreaming } from "./hooks/useAiStreaming"
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts"
+import { generateId } from "./lib/id"
+import {
+  removeThreadAnchor,
+  setThreadAnchorActive,
+  updateThreadAnchorId,
+  wrapCurrentSelectionWithThreadAnchor,
+  wrapFirstOccurrenceWithThreadAnchor,
+} from "./lib/threadAnchors"
 
 import {
   getHistory,
@@ -80,6 +88,7 @@ const App: React.FC = () => {
   })
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
+  const threadAnchorElsRef = useRef<Map<string, HTMLElement>>(new Map())
 
   // Session history from localStorage (just metadata for display)
   const [sessionHistory, setSessionHistory] = useState<SessionMeta[]>([])
@@ -89,6 +98,7 @@ const App: React.FC = () => {
   const { settings, isSettingsOpen, openSettings, closeSettings, saveSettings } = useSettings()
   const { quotes, addQuote, deleteQuote, setQuotes } = useQuotes()
   const threadManager = useThreadManager()
+  const threadIdsKey = threadManager.threads.map(t => t.id).join("|")
   const { selection, clearSelection } = useTextSelection(
     contentRef,
     viewState === ViewState.READING
@@ -111,6 +121,64 @@ const App: React.FC = () => {
     onOpenSettings: openSettings,
   })
 
+  // Reset any DOM thread anchors when the document changes
+  useEffect(() => {
+    threadAnchorElsRef.current.clear()
+  }, [markdownContent])
+
+  // Keep anchor "active" styling in sync with the open thread
+  useEffect(() => {
+    threadAnchorElsRef.current.forEach((el, id) => {
+      setThreadAnchorActive(el, id === threadManager.activeThreadId)
+    })
+  }, [threadManager.activeThreadId])
+
+  // Ensure existing threads have visible anchors in the document
+  useEffect(() => {
+    if (viewState !== ViewState.READING) return
+    const root = contentRef.current
+    if (!root) return
+
+    const currentThreadIds = new Set(threadManager.threads.map(t => t.id))
+    const idsToRemove: string[] = []
+    threadAnchorElsRef.current.forEach((_, id) => {
+      if (!currentThreadIds.has(id)) idsToRemove.push(id)
+    })
+    for (const id of idsToRemove) {
+      const el = threadAnchorElsRef.current.get(id)
+      if (el) removeThreadAnchor(el)
+      threadAnchorElsRef.current.delete(id)
+    }
+
+    let cancelled = false
+    const tryApplyAnchors = (attempt: number) => {
+      if (cancelled) return
+      if (!root.querySelector(".markdown-content")) {
+        if (attempt < 120) requestAnimationFrame(() => tryApplyAnchors(attempt + 1))
+        return
+      }
+
+      for (const thread of threadManager.threads) {
+        if (thread.context === "Entire Document") continue
+        if (threadAnchorElsRef.current.has(thread.id)) continue
+
+        const el = wrapFirstOccurrenceWithThreadAnchor(root, thread.context, thread.id)
+        if (!el) continue
+
+        el.title = `Open thread: ${thread.snippet}`
+        el.setAttribute("aria-label", `Open thread: ${thread.snippet}`)
+        setThreadAnchorActive(el, thread.id === threadManager.activeThreadId)
+        threadAnchorElsRef.current.set(thread.id, el)
+      }
+    }
+
+    requestAnimationFrame(() => tryApplyAnchors(0))
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewState, markdownContent, threadIdsKey])
+
   // Load session history from localStorage on mount
   useEffect(() => {
     setSessionHistory(getHistory())
@@ -125,6 +193,7 @@ const App: React.FC = () => {
         snippet: t.snippet,
         createdAt: t.createdAt,
         messages: t.messages.map(m => ({
+          id: m.id,
           role: m.role,
           text: m.text,
           timestamp: m.timestamp,
@@ -207,10 +276,59 @@ const App: React.FC = () => {
   // Event handlers
   const handleDocumentMouseDown = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement
-    if (!target.closest("button") && !target.closest("input")) {
+    if (
+      !target.closest("button") &&
+      !target.closest("input") &&
+      !target.closest("[data-thread-anchor]")
+    ) {
       clearSelection()
     }
   }
+
+  const openThreadFromAnchor = useCallback(
+    (threadId: string) => {
+      threadManager.setActiveThreadId(threadId)
+      setIsSidebarOpen(true)
+    },
+    [threadManager]
+  )
+
+  const handleThreadAnchorClick = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement
+      const el = target.closest<HTMLElement>("[data-thread-anchor]")
+      if (!el) return
+
+      const currentSelection = window.getSelection()
+      if (currentSelection && !currentSelection.isCollapsed) return
+
+      const threadId = el.getAttribute("data-thread-anchor")
+      if (!threadId) return
+
+      e.preventDefault()
+      e.stopPropagation()
+      openThreadFromAnchor(threadId)
+    },
+    [openThreadFromAnchor]
+  )
+
+  const handleThreadAnchorKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key !== "Enter" && e.key !== " ") return
+
+      const target = e.target as HTMLElement
+      const el = target.closest<HTMLElement>("[data-thread-anchor]")
+      if (!el) return
+
+      const threadId = el.getAttribute("data-thread-anchor")
+      if (!threadId) return
+
+      e.preventDefault()
+      e.stopPropagation()
+      openThreadFromAnchor(threadId)
+    },
+    [openThreadFromAnchor]
+  )
 
   const handleExport = () => {
     let exportText = markdownContent
@@ -378,6 +496,15 @@ const App: React.FC = () => {
     const snippet =
       selection.text.length > 30 ? selection.text.substring(0, 30) + "..." : selection.text
 
+    const anchorEl = contentRef.current
+      ? wrapCurrentSelectionWithThreadAnchor(contentRef.current, newThreadId)
+      : null
+    if (anchorEl) {
+      anchorEl.title = `Open thread: ${snippet}`
+      anchorEl.setAttribute("aria-label", `Open thread: ${snippet}`)
+      threadAnchorElsRef.current.set(newThreadId, anchorEl)
+    }
+
     const newThread: Thread = {
       id: newThreadId,
       context: selection.text,
@@ -398,6 +525,13 @@ const App: React.FC = () => {
       if (savedThreadId && savedThreadId !== newThreadId) {
         threadManager.updateThreadId(newThreadId, savedThreadId)
         apiThreadId = savedThreadId
+
+        const el = threadAnchorElsRef.current.get(newThreadId)
+        if (el) {
+          updateThreadAnchorId(el, savedThreadId)
+          threadAnchorElsRef.current.delete(newThreadId)
+          threadAnchorElsRef.current.set(savedThreadId, el)
+        }
       }
     }
 
@@ -407,24 +541,40 @@ const App: React.FC = () => {
 
     // For "summarize", add user message and stream AI response
     const initialUserMessage = "Please explain this section in simple terms."
-    threadManager.addMessageToThread(apiThreadId, {
-      role: "user",
+    const initialUserMessageId = generateId()
+    const initialUserMsg = {
+      id: initialUserMessageId,
+      role: "user" as const,
       text: initialUserMessage,
       timestamp: Date.now(),
-    })
+    }
+    threadManager.addMessageToThread(apiThreadId, initialUserMsg)
 
     if (sessionId) {
-      await session.addMessage(apiThreadId, "user", initialUserMessage)
+      const savedId = await session.addMessage(apiThreadId, "user", initialUserMessage)
+      if (savedId && savedId !== initialUserMessageId) {
+        threadManager.replaceMessageId(apiThreadId, initialUserMessageId, savedId)
+        initialUserMsg.id = savedId
+      }
     }
 
     await streamResponse({
       threadId: apiThreadId,
       context: selection.text,
       markdownContent,
-      messages: [{ role: "user", text: initialUserMessage, timestamp: Date.now() }],
+      messages: [initialUserMsg],
       userMessage: initialUserMessage,
       mode: "explain",
     })
+  }
+
+  const handleDeleteThread = (threadId: string) => {
+    const el = threadAnchorElsRef.current.get(threadId)
+    if (el) {
+      removeThreadAnchor(el)
+      threadAnchorElsRef.current.delete(threadId)
+    }
+    threadManager.deleteThread(threadId)
   }
 
   const handleCreateGeneralThread = async (e: React.FormEvent) => {
@@ -435,10 +585,17 @@ const App: React.FC = () => {
     setGeneralInputValue("")
 
     const newThreadId = Date.now().toString()
+    const initialMessageId = generateId()
+    const initialUserMsg = {
+      id: initialMessageId,
+      role: "user" as const,
+      text: initialMessage,
+      timestamp: Date.now(),
+    }
     const newThread: Thread = {
       id: newThreadId,
       context: "Entire Document",
-      messages: [{ role: "user", text: initialMessage, timestamp: Date.now() }],
+      messages: [initialUserMsg],
       createdAt: Date.now(),
       snippet: "General Discussion",
     }
@@ -457,14 +614,18 @@ const App: React.FC = () => {
     }
 
     if (sessionId) {
-      await session.addMessage(apiThreadId, "user", initialMessage)
+      const savedId = await session.addMessage(apiThreadId, "user", initialMessage)
+      if (savedId && savedId !== initialMessageId) {
+        threadManager.replaceMessageId(apiThreadId, initialMessageId, savedId)
+        initialUserMsg.id = savedId
+      }
     }
 
     await streamResponse({
       threadId: apiThreadId,
       context: "Entire Document",
       markdownContent,
-      messages: [{ role: "user", text: initialMessage, timestamp: Date.now() }],
+      messages: [initialUserMsg],
       userMessage: initialMessage,
       mode: "discuss",
     })
@@ -473,11 +634,16 @@ const App: React.FC = () => {
   const handleSendMessage = async (text: string) => {
     if (!threadManager.activeThreadId || !threadManager.activeThread) return
 
-    const userMessage = { role: "user" as const, text, timestamp: Date.now() }
+    const userMessageId = generateId()
+    const userMessage = { id: userMessageId, role: "user" as const, text, timestamp: Date.now() }
     threadManager.addMessageToThread(threadManager.activeThreadId, userMessage)
 
     if (sessionId) {
-      await session.addMessage(threadManager.activeThreadId, "user", text)
+      const savedId = await session.addMessage(threadManager.activeThreadId, "user", text)
+      if (savedId && savedId !== userMessageId) {
+        threadManager.replaceMessageId(threadManager.activeThreadId, userMessageId, savedId)
+        userMessage.id = savedId
+      }
     }
 
     await streamResponse({
@@ -488,6 +654,41 @@ const App: React.FC = () => {
       userMessage: text,
       mode: "discuss",
     })
+  }
+
+  const handleUpdateMessage = async (messageId: string, newText: string) => {
+    if (!threadManager.activeThreadId) return
+    const threadId = threadManager.activeThreadId
+    const thread = threadManager.activeThread
+    if (!thread) return
+
+    const msgIndex = thread.messages.findIndex(m => m.id === messageId)
+    if (msgIndex === -1) return
+
+    const isUserMessage = thread.messages[msgIndex].role === "user"
+    const historyForAI = [
+      ...thread.messages.slice(0, msgIndex),
+      { ...thread.messages[msgIndex], text: newText },
+    ]
+
+    threadManager.updateMessageToThread(threadId, messageId, newText)
+    threadManager.truncateThreadAfter(threadId, messageId)
+
+    if (sessionId && session.isOwner) {
+      await session.updateMessage(threadId, messageId, newText)
+      await session.truncateThread(threadId, messageId)
+    }
+
+    if (isUserMessage) {
+      await streamResponse({
+        threadId,
+        context: thread.context,
+        markdownContent,
+        messages: historyForAI,
+        userMessage: newText,
+        mode: "discuss",
+      })
+    }
   }
 
   const handleViewThreadList = () => {
@@ -518,6 +719,7 @@ const App: React.FC = () => {
     const lastUserMessage = messages[lastUserMessageIndex].text
 
     threadManager.replaceLastMessage(threadManager.activeThreadId, {
+      id: generateId(),
       role: "model",
       text: "",
       timestamp: Date.now(),
@@ -767,7 +969,11 @@ const App: React.FC = () => {
                   />
                 </button>
               )}
-              <div ref={contentRef}>
+              <div
+                ref={contentRef}
+                onClick={handleThreadAnchorClick}
+                onKeyDown={handleThreadAnchorKeyDown}
+              >
                 <Suspense
                   fallback={<div className="animate-pulse text-slate-400">Loading content...</div>}
                 >
@@ -832,9 +1038,11 @@ const App: React.FC = () => {
               onClose={() => setIsSidebarOpen(false)}
               onBack={() => threadManager.setActiveThreadId(null)}
               onSendMessage={handleSendMessage}
-              onDelete={() => threadManager.deleteThread(threadManager.activeThreadId!)}
+              onDelete={() => handleDeleteThread(threadManager.activeThreadId!)}
               onRetry={handleRetry}
               onOpenSettings={openSettings}
+              onUpdateMessage={handleUpdateMessage}
+              isReadOnly={sessionId ? !session.isOwner : false}
             />
           ) : (
             <ThreadList

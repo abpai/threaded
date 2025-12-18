@@ -148,6 +148,42 @@ export async function addMessage(
   )
 }
 
+export async function updateMessage(
+  sessionId: string,
+  ownerToken: string,
+  threadId: string,
+  messageId: string,
+  text: string
+): Promise<void> {
+  await withRetry(() =>
+    request<{ success: boolean }>(
+      `/api/sessions/${sessionId}/threads/${threadId}/messages/${messageId}`,
+      {
+        method: "PUT",
+        headers: { "X-Owner-Token": ownerToken },
+        body: JSON.stringify({ text }),
+      }
+    )
+  )
+}
+
+export async function truncateThread(
+  sessionId: string,
+  ownerToken: string,
+  threadId: string,
+  afterMessageId: string
+): Promise<void> {
+  await withRetry(() =>
+    request<{ success: boolean }>(
+      `/api/sessions/${sessionId}/threads/${threadId}/messages?after=${afterMessageId}`,
+      {
+        method: "DELETE",
+        headers: { "X-Owner-Token": ownerToken },
+      }
+    )
+  )
+}
+
 export async function forkSession(sessionId: string): Promise<ForkSessionResponse> {
   return withRetry(() =>
     request<ForkSessionResponse>(`/api/sessions/${sessionId}/fork`, {

@@ -74,7 +74,9 @@ export interface UseSessionResult {
 
   // Actions
   addThread: (context: string, snippet: string) => Promise<string | null>
-  addMessage: (threadId: string, role: "user" | "model", text: string) => Promise<void>
+  addMessage: (threadId: string, role: "user" | "model", text: string) => Promise<string | null>
+  updateMessage: (threadId: string, messageId: string, text: string) => Promise<void>
+  truncateThread: (threadId: string, afterMessageId: string) => Promise<void>
   deleteSession: () => Promise<boolean>
   forkAndRedirect: () => Promise<string | null>
 
@@ -202,8 +204,8 @@ export function useSession(
 
   // Add message (handles fork for non-owners)
   const addMessage = useCallback(
-    async (threadId: string, role: "user" | "model", text: string): Promise<void> => {
-      if (!sessionId) return
+    async (threadId: string, role: "user" | "model", text: string): Promise<string | null> => {
+      if (!sessionId) return null
 
       let targetSessionId = sessionId
       let targetOwnerToken = ownerToken
@@ -211,29 +213,71 @@ export function useSession(
       // Fork if not owner
       if (!isOwner) {
         const forkedId = await forkAndRedirect()
-        if (!forkedId) return
+        if (!forkedId) return null
 
         targetSessionId = forkedId
         const newOwnership = getSessionOwnership(forkedId)
         targetOwnerToken = newOwnership?.ownerToken ?? null
       }
 
-      if (!targetOwnerToken) return
+      if (!targetOwnerToken) return null
 
       try {
         setSaveState("saving")
         setSaveError(null)
 
-        await api.addMessage(targetSessionId, targetOwnerToken, threadId, role, text)
+        const result = await api.addMessage(targetSessionId, targetOwnerToken, threadId, role, text)
 
         setSaveState("idle")
+        return result.messageId
       } catch (e) {
         const message = e instanceof api.ApiError ? e.message : "Failed to add message"
         setSaveError(message)
         setSaveState("error")
+        return null
       }
     },
     [sessionId, isOwner, ownerToken, forkAndRedirect]
+  )
+
+  const updateMessage = useCallback(
+    async (threadId: string, messageId: string, text: string): Promise<void> => {
+      if (!sessionId || !ownerToken || !isOwner) return
+
+      try {
+        setSaveState("saving")
+        setSaveError(null)
+
+        await api.updateMessage(sessionId, ownerToken, threadId, messageId, text)
+
+        setSaveState("idle")
+      } catch (e) {
+        const message = e instanceof api.ApiError ? e.message : "Failed to update message"
+        setSaveError(message)
+        setSaveState("error")
+      }
+    },
+    [sessionId, isOwner, ownerToken]
+  )
+
+  const truncateThread = useCallback(
+    async (threadId: string, afterMessageId: string): Promise<void> => {
+      if (!sessionId || !ownerToken || !isOwner) return
+
+      try {
+        setSaveState("saving")
+        setSaveError(null)
+
+        await api.truncateThread(sessionId, ownerToken, threadId, afterMessageId)
+
+        setSaveState("idle")
+      } catch (e) {
+        const message = e instanceof api.ApiError ? e.message : "Failed to truncate thread"
+        setSaveError(message)
+        setSaveState("error")
+      }
+    },
+    [sessionId, isOwner, ownerToken]
   )
 
   // Delete session (owner only)
@@ -267,6 +311,8 @@ export function useSession(
     saveError,
     addThread,
     addMessage,
+    updateMessage,
+    truncateThread,
     deleteSession,
     forkAndRedirect,
     refresh: loadSession,

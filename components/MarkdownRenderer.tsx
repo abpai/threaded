@@ -23,4 +23,4 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
   )
 }
 
-export default MarkdownRenderer
+export default React.memo(MarkdownRenderer)

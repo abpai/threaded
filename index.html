@@ -269,6 +269,33 @@
         font-size: 0.8em;
       }
 
+      /* Thread anchors (branch points) */
+      .thread-anchor {
+        text-decoration: underline;
+        text-decoration-thickness: 2px;
+        text-decoration-color: rgba(34, 211, 238, 0.85);
+        text-underline-offset: 3px;
+        cursor: pointer;
+        border-radius: 0.2em;
+        transition: background-color 0.15s ease;
+      }
+      .thread-anchor:hover {
+        background: rgba(34, 211, 238, 0.12);
+      }
+      .thread-anchor:focus-visible {
+        outline: 2px solid rgba(34, 211, 238, 0.9);
+        outline-offset: 2px;
+      }
+      .thread-anchor[data-thread-active="true"] {
+        background: rgba(34, 211, 238, 0.18);
+      }
+      .dark .thread-anchor:hover {
+        background: rgba(34, 211, 238, 0.16);
+      }
+      .dark .thread-anchor[data-thread-active="true"] {
+        background: rgba(34, 211, 238, 0.22);
+      }
+
       ::selection {
         background: #bfdbfe; /* blue-200 */
         color: #1e3a8a;
