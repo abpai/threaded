@@ -27,15 +27,24 @@ const API_KEYS_STORAGE_KEY = "threaded-api-keys"
 
 // API Response types for model listing
 interface GoogleModelsResponse {
-  models?: Array<{ name: string }>
+  models?: Array<{
+    name: string
+    supportedGenerationMethods?: string[]
+  }>
 }
 
 interface OpenAIModelsResponse {
-  data?: Array<{ id: string }>
+  data?: Array<{
+    id: string
+    created: number
+  }>
 }
 
 interface AnthropicModelsResponse {
-  data?: Array<{ id: string }>
+  data?: Array<{
+    id: string
+    created_at?: string
+  }>
 }
 
 function getStoredApiKeys(): Partial<Record<AiProvider, string>> {
@@ -118,7 +127,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     if (!settings.apiKey && settings.provider !== "ollama") return
 
     setIsLoadingModels(true)
-    let fetched: string[] = []
+    let fetched: { id: string; created?: number; created_at?: string }[] = []
 
     try {
       if (settings.provider === "google") {
@@ -127,7 +136,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         )
         const data: GoogleModelsResponse = await response.json()
         if (data.models) {
-          fetched = data.models.map(m => m.name.replace("models/", ""))
+          fetched = data.models
+            .filter(m => m.supportedGenerationMethods?.includes("generateContent"))
+            .map(m => ({ id: m.name.replace("models/", "") }))
         }
       } else if (settings.provider === "openai" || settings.provider === "ollama") {
         const baseUrl =
@@ -143,7 +154,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         const response = await fetch(`${baseUrl}/models`, { headers })
         const data: OpenAIModelsResponse = await response.json()
         if (data.data) {
-          fetched = data.data.map(m => m.id)
+          fetched = data.data.map(m => ({ id: m.id, created: m.created }))
         }
       } else if (settings.provider === "anthropic") {
         const response = await fetch("https://api.anthropic.com/v1/models", {
@@ -155,7 +166,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         })
         const data: AnthropicModelsResponse = await response.json()
         if (data.data) {
-          fetched = data.data.map(m => m.id)
+          fetched = data.data.map(m => ({ id: m.id, created_at: m.created_at }))
         }
       }
     } catch (error) {
@@ -163,17 +174,26 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     }
 
     if (fetched.length > 0) {
-      // Filter models by provider-specific patterns
-      const filterPatterns: Record<AiProvider, RegExp | null> = {
-        google: /^(gemini|gemma)/i,
-        openai: /^gpt/i,
-        anthropic: /^claude/i,
-        ollama: null, // No filter for local models
+      // Filter and Sort
+      let filtered = fetched
+
+      if (settings.provider === "google") {
+        filtered = fetched.filter(m => m.id.toLowerCase().includes("gemini"))
+      } else if (settings.provider === "openai") {
+        filtered = fetched
+          .filter(m => m.id.toLowerCase().startsWith("gpt"))
+          .sort((a, b) => (b.created || 0) - (a.created || 0))
+      } else if (settings.provider === "anthropic") {
+        filtered = fetched
+          .filter(m => m.id.toLowerCase().includes("claude"))
+          .sort((a, b) => {
+            if (!a.created_at) return 1
+            if (!b.created_at) return -1
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          })
       }
 
-      const pattern = filterPatterns[settings.provider]
-      const filtered = pattern ? fetched.filter(m => pattern.test(m)) : fetched
-      const uniqueModels = Array.from(new Set(filtered.length > 0 ? filtered : fetched))
+      const uniqueModels = Array.from(new Set(filtered.map(m => m.id)))
 
       setAvailableModels(uniqueModels)
       setIsModelListOpen(true)
@@ -251,6 +271,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               type="password"
               value={settings.apiKey}
               onChange={e => setSettings({ ...settings, apiKey: e.target.value })}
+              onBlur={fetchModels}
               placeholder={
                 settings.provider === "ollama"
                   ? "Optional for local Ollama"
@@ -282,63 +303,65 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
 
           {/* Model Name (Searchable Combobox) */}
-          <div ref={dropdownRef} className="relative">
-            <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
-              Model Name
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={settings.modelId}
-                onChange={e => {
-                  setSettings({ ...settings, modelId: e.target.value })
-                  setIsModelListOpen(true)
-                }}
-                onFocus={() => setIsModelListOpen(true)}
-                placeholder="e.g. gpt-4o, gemini-1.5-flash, llama3.2"
-                className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
-              />
-              <button
-                type="button"
-                onClick={fetchModels}
-                disabled={(!settings.apiKey && settings.provider !== "ollama") || isLoadingModels}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-accent disabled:opacity-50 disabled:hover:text-slate-400 transition-colors"
-                title="Fetch models from provider"
-              >
-                {isLoadingModels ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <RefreshCw size={16} />
-                )}
-              </button>
-            </div>
-
-            {/* Dropdown List */}
-            {isModelListOpen && (
-              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-dark-elevated border border-slate-200 dark:border-dark-border rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                {filteredModels.length > 0 ? (
-                  filteredModels.map(model => (
-                    <button
-                      key={model}
-                      type="button"
-                      onClick={() => {
-                        setSettings({ ...settings, modelId: model })
-                        setIsModelListOpen(false)
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-700 flex items-center justify-between"
-                    >
-                      <span>{model}</span>
-                      {settings.modelId === model && <Check size={14} className="text-accent" />}
-                    </button>
-                  ))
-                ) : (
-                  <div className="px-4 py-3 text-xs text-slate-500 dark:text-zinc-500 text-center">
-                    No matching models found.
-                  </div>
-                )}
+          {(settings.apiKey || settings.provider === "ollama") && (
+            <div ref={dropdownRef} className="relative">
+              <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
+                Model Name
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={settings.modelId}
+                  onChange={e => {
+                    setSettings({ ...settings, modelId: e.target.value })
+                    setIsModelListOpen(true)
+                  }}
+                  onFocus={() => setIsModelListOpen(true)}
+                  placeholder="e.g. gpt-4o, gemini-1.5-flash, llama3.2"
+                  className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={fetchModels}
+                  disabled={(!settings.apiKey && settings.provider !== "ollama") || isLoadingModels}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-accent disabled:opacity-50 disabled:hover:text-slate-400 transition-colors"
+                  title="Fetch models from provider"
+                >
+                  {isLoadingModels ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <RefreshCw size={16} />
+                  )}
+                </button>
               </div>
-            )}
-          </div>
+
+              {/* Dropdown List */}
+              {isModelListOpen && (
+                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-dark-elevated border border-slate-200 dark:border-dark-border rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                  {filteredModels.length > 0 ? (
+                    filteredModels.map(model => (
+                      <button
+                        key={model}
+                        type="button"
+                        onClick={() => {
+                          setSettings({ ...settings, modelId: model })
+                          setIsModelListOpen(false)
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-700 flex items-center justify-between"
+                      >
+                        <span>{model}</span>
+                        {settings.modelId === model && <Check size={14} className="text-accent" />}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-xs text-slate-500 dark:text-zinc-500 text-center">
+                      No matching models found.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Base URL (Optional for OpenAI, Required for Ollama) */}
           {(settings.provider === "openai" || settings.provider === "ollama") && (
