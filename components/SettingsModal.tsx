@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Loader2, RefreshCw, Save, X } from "lucide-react"
+import { Check, CheckCircle2, ChevronDown, Loader2, RefreshCw, Save, X } from "lucide-react"
 import React, { useEffect, useRef, useState } from "react"
 import { AiProvider, AppSettings } from "../types"
 
@@ -74,6 +74,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [availableModels, setAvailableModels] = useState<string[]>([])
   const [isModelListOpen, setIsModelListOpen] = useState(false)
   const [isLoadingModels, setIsLoadingModels] = useState(false)
+  const [isValidated, setIsValidated] = useState(false)
 
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -82,6 +83,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     if (isOpen) {
       setSettings(currentSettings)
       setAvailableModels([])
+      setIsValidated(!!currentSettings.apiKey || currentSettings.provider === "ollama")
     }
   }, [isOpen, currentSettings])
 
@@ -121,12 +123,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       apiKey: storedApiKey,
     }))
     setAvailableModels([])
+    setIsValidated(false)
   }
 
   const fetchModels = async () => {
     if (!settings.apiKey && settings.provider !== "ollama") return
 
     setIsLoadingModels(true)
+    setIsValidated(false)
     let fetched: { id: string; created?: number; created_at?: string }[] = []
 
     try {
@@ -134,6 +138,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models?key=${settings.apiKey}`
         )
+        if (!response.ok) throw new Error("Failed to fetch models")
         const data: GoogleModelsResponse = await response.json()
         if (data.models) {
           fetched = data.models
@@ -152,6 +157,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         }
 
         const response = await fetch(`${baseUrl}/models`, { headers })
+        if (!response.ok) throw new Error("Failed to fetch models")
         const data: OpenAIModelsResponse = await response.json()
         if (data.data) {
           fetched = data.data.map(m => ({ id: m.id, created: m.created }))
@@ -164,13 +170,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             "anthropic-dangerous-direct-browser-access": "true",
           },
         })
+        if (!response.ok) throw new Error("Failed to fetch models")
         const data: AnthropicModelsResponse = await response.json()
         if (data.data) {
           fetched = data.data.map(m => ({ id: m.id, created_at: m.created_at }))
         }
       }
+      setIsValidated(true)
     } catch (error) {
       console.error("Error fetching models:", error)
+      setIsValidated(false)
     }
 
     if (fetched.length > 0) {
@@ -267,18 +276,34 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span className="text-slate-400 dark:text-zinc-500 font-normal">(Optional)</span>
               )}
             </label>
-            <input
-              type="password"
-              value={settings.apiKey}
-              onChange={e => setSettings({ ...settings, apiKey: e.target.value })}
-              onBlur={fetchModels}
-              placeholder={
-                settings.provider === "ollama"
-                  ? "Optional for local Ollama"
-                  : `Enter your ${PROVIDERS.find(p => p.id === settings.provider)?.name} API Key`
-              }
-              className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
-            />
+            <div className="relative">
+              <input
+                type="password"
+                value={settings.apiKey}
+                onChange={e => {
+                  setSettings({ ...settings, apiKey: e.target.value })
+                  setIsValidated(false)
+                }}
+                onBlur={fetchModels}
+                placeholder={
+                  settings.provider === "ollama"
+                    ? "Optional for local Ollama"
+                    : `Enter your ${PROVIDERS.find(p => p.id === settings.provider)?.name} API Key`
+                }
+                className={`w-full bg-slate-50 dark:bg-dark-elevated border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 transition-all ${
+                  isValidated
+                    ? "border-green-500/50 focus:border-green-500 focus:ring-green-500/20"
+                    : "border-slate-200 dark:border-dark-border focus:ring-accent/50 focus:border-accent"
+                }`}
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none transition-all duration-200">
+                {isLoadingModels ? (
+                  <Loader2 size={18} className="animate-spin text-slate-400" />
+                ) : isValidated ? (
+                  <CheckCircle2 size={18} className="text-green-500 animate-in zoom-in" />
+                ) : null}
+              </div>
+            </div>
             <p className="mt-1.5 text-xs text-slate-500 dark:text-zinc-400">
               {API_KEY_LINKS[settings.provider] && (
                 <>
@@ -303,7 +328,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
 
           {/* Model Name (Searchable Combobox) */}
-          {(settings.apiKey || settings.provider === "ollama") && (
+          <div
+            className={`transition-all duration-300 ease-in-out overflow-hidden ${
+              isValidated || settings.provider === "ollama"
+                ? "max-h-[200px] opacity-100 translate-y-0"
+                : "max-h-0 opacity-0 -translate-y-2"
+            }`}
+          >
             <div ref={dropdownRef} className="relative">
               <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
                 Model Name
@@ -361,11 +392,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               )}
             </div>
-          )}
+          </div>
 
           {/* Base URL (Optional for OpenAI, Required for Ollama) */}
-          {(settings.provider === "openai" || settings.provider === "ollama") && (
-            <div>
+          {((settings.provider === "openai" && isValidated) || settings.provider === "ollama") && (
+            <div className="animate-in fade-in slide-in-from-top-2 duration-300">
               <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
                 Base URL{" "}
                 <span className="text-slate-400 dark:text-zinc-500 font-normal">
