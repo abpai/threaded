@@ -83,8 +83,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     if (isOpen) {
       setSettings(currentSettings)
       setAvailableModels([])
-      setIsValidated(!!currentSettings.apiKey || currentSettings.provider === "ollama")
+      setIsValidated(currentSettings.provider === "ollama")
+
+      // Auto-validate if key exists
+      if (currentSettings.apiKey && currentSettings.provider !== "ollama") {
+        fetchModels(currentSettings)
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, currentSettings])
 
   // Handle clicking outside to close dropdown
@@ -123,20 +129,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       apiKey: storedApiKey,
     }))
     setAvailableModels([])
-    setIsValidated(false)
+    setIsValidated(newProvider === "ollama")
   }
 
-  const fetchModels = async () => {
-    if (!settings.apiKey && settings.provider !== "ollama") return
+  const fetchModels = async (settingsOverride?: AppSettings) => {
+    const activeSettings = settingsOverride || settings
+
+    if (!activeSettings.apiKey && activeSettings.provider !== "ollama") {
+      setIsValidated(false)
+      return
+    }
 
     setIsLoadingModels(true)
     setIsValidated(false)
     let fetched: { id: string; created?: number; created_at?: string }[] = []
 
     try {
-      if (settings.provider === "google") {
+      if (activeSettings.provider === "google") {
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models?key=${settings.apiKey}`
+          `https://generativelanguage.googleapis.com/v1beta/models?key=${activeSettings.apiKey}`
         )
         if (!response.ok) throw new Error("Failed to fetch models")
         const data: GoogleModelsResponse = await response.json()
@@ -145,15 +156,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             .filter(m => m.supportedGenerationMethods?.includes("generateContent"))
             .map(m => ({ id: m.name.replace("models/", "") }))
         }
-      } else if (settings.provider === "openai" || settings.provider === "ollama") {
+      } else if (activeSettings.provider === "openai" || activeSettings.provider === "ollama") {
         const baseUrl =
-          settings.baseUrl ||
-          (settings.provider === "openai"
+          activeSettings.baseUrl ||
+          (activeSettings.provider === "openai"
             ? "https://api.openai.com/v1"
             : "http://localhost:11434/v1")
         const headers: Record<string, string> = {}
-        if (settings.apiKey) {
-          headers["Authorization"] = `Bearer ${settings.apiKey}`
+        if (activeSettings.apiKey) {
+          headers["Authorization"] = `Bearer ${activeSettings.apiKey}`
         }
 
         const response = await fetch(`${baseUrl}/models`, { headers })
@@ -162,10 +173,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         if (data.data) {
           fetched = data.data.map(m => ({ id: m.id, created: m.created }))
         }
-      } else if (settings.provider === "anthropic") {
+      } else if (activeSettings.provider === "anthropic") {
         const response = await fetch("https://api.anthropic.com/v1/models", {
           headers: {
-            "x-api-key": settings.apiKey,
+            "x-api-key": activeSettings.apiKey,
             "anthropic-version": "2023-06-01",
             "anthropic-dangerous-direct-browser-access": "true",
           },
@@ -186,13 +197,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       // Filter and Sort
       let filtered = fetched
 
-      if (settings.provider === "google") {
+      if (activeSettings.provider === "google") {
         filtered = fetched.filter(m => m.id.toLowerCase().includes("gemini"))
-      } else if (settings.provider === "openai") {
+      } else if (activeSettings.provider === "openai") {
         filtered = fetched
           .filter(m => m.id.toLowerCase().startsWith("gpt"))
           .sort((a, b) => (b.created || 0) - (a.created || 0))
-      } else if (settings.provider === "anthropic") {
+      } else if (activeSettings.provider === "anthropic") {
         filtered = fetched
           .filter(m => m.id.toLowerCase().includes("claude"))
           .sort((a, b) => {
@@ -284,7 +295,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   setSettings({ ...settings, apiKey: e.target.value })
                   setIsValidated(false)
                 }}
-                onBlur={fetchModels}
+                onBlur={() => fetchModels()}
                 placeholder={
                   settings.provider === "ollama"
                     ? "Optional for local Ollama"
@@ -353,7 +364,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 />
                 <button
                   type="button"
-                  onClick={fetchModels}
+                  onClick={() => fetchModels()}
                   disabled={(!settings.apiKey && settings.provider !== "ollama") || isLoadingModels}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-accent disabled:opacity-50 disabled:hover:text-slate-400 transition-colors"
                   title="Fetch models from provider"
