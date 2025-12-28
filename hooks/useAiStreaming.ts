@@ -1,8 +1,13 @@
-import { useState, useCallback, useRef } from "react"
-import { streamThreadResponse, AIError, ThreadMode } from "../services/aiService"
-import { AppSettings, Message } from "../types"
-import { UseSessionResult } from "./useSession"
-import { generateId } from "../lib/id"
+import { useState, useCallback, useRef } from 'react'
+import {
+  streamThreadResponseWithParts,
+  convertUIMessageParts,
+  AIError,
+  ThreadMode,
+} from '../services/aiService'
+import { AppSettings, Message, MessagePart, getTextFromParts } from '../types'
+import { UseSessionResult } from './useSession'
+import { generateId } from '../lib/id'
 
 export interface StreamOptions {
   threadId: string
@@ -18,12 +23,12 @@ interface ThreadManagerLike {
   replaceMessageId: (threadId: string, oldId: string, newId: string) => void
   appendToLastMessage: (threadId: string, chunk: string) => void
   updateLastMessage: (threadId: string, text: string) => void
+  updateMessageParts: (threadId: string, messageId: string, parts: MessagePart[]) => void
 }
 
 export interface UseAiStreamingResult {
   isLoading: boolean
   streamResponse: (options: StreamOptions) => Promise<string | null>
-  abort: () => void
 }
 
 export function useAiStreaming(
@@ -32,43 +37,55 @@ export function useAiStreaming(
   session?: UseSessionResult | null
 ): UseAiStreamingResult {
   const [isLoading, setIsLoading] = useState(false)
-  const abortRef = useRef(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const streamResponse = useCallback(
     async (options: StreamOptions): Promise<string | null> => {
       const { threadId, context, markdownContent, messages, userMessage, mode } = options
 
-      // Add placeholder AI message
+      // Abort any previous stream
+      abortControllerRef.current?.abort()
+      const abortController = new AbortController()
+      abortControllerRef.current = abortController
+
+      // Add placeholder AI message with empty parts
       const placeholderId = generateId()
       threadManager.addMessageToThread(threadId, {
         id: placeholderId,
-        role: "model",
-        text: "",
+        role: 'assistant',
+        parts: [],
+        text: '',
         timestamp: Date.now(),
       })
 
       setIsLoading(true)
-      abortRef.current = false
-      let fullResponse = ""
+      let finalParts: MessagePart[] = []
 
       try {
-        for await (const chunk of streamThreadResponse(
+        // Use the new UIMessage streaming with tool support
+        for await (const uiMessage of streamThreadResponseWithParts(
           context,
           markdownContent,
           messages,
           userMessage,
           settings,
-          mode
+          mode,
+          abortController.signal
         )) {
-          if (abortRef.current) break
+          // Check if aborted before processing
+          if (abortController.signal.aborted) break
 
-          fullResponse += chunk
-          threadManager.appendToLastMessage(threadId, chunk)
+          // Convert and update parts
+          const parts = convertUIMessageParts(uiMessage)
+          finalParts = parts
+          threadManager.updateMessageParts(threadId, placeholderId, parts)
         }
+
+        const fullResponse = getTextFromParts(finalParts)
 
         // Save to API if session exists (addMessage handles fork for non-owners)
         if (session && fullResponse) {
-          const savedId = await session.addMessage(threadId, "model", fullResponse)
+          const savedId = await session.addMessage(threadId, 'assistant', fullResponse)
           if (savedId && savedId !== placeholderId) {
             threadManager.replaceMessageId(threadId, placeholderId, savedId)
           }
@@ -77,7 +94,8 @@ export function useAiStreaming(
         return fullResponse
       } catch (error) {
         const aiError = error as AIError
-        threadManager.updateLastMessage(threadId, `Error: ${aiError.message}`)
+        const errorParts: MessagePart[] = [{ type: 'text', text: `Error: ${aiError.message}` }]
+        threadManager.updateMessageParts(threadId, placeholderId, errorParts)
         return null
       } finally {
         setIsLoading(false)
@@ -86,9 +104,5 @@ export function useAiStreaming(
     [settings, threadManager, session]
   )
 
-  const abort = useCallback(() => {
-    abortRef.current = true
-  }, [])
-
-  return { isLoading, streamResponse, abort }
+  return { isLoading, streamResponse }
 }
