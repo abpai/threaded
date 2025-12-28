@@ -1,28 +1,28 @@
-const THREAD_ANCHOR_ATTR = "data-thread-anchor"
+const THREAD_ANCHOR_ATTR = 'data-thread-anchor'
 
-const THREAD_ANCHOR_CLASS = "thread-anchor"
+const THREAD_ANCHOR_CLASS = 'thread-anchor'
 
 const BLOCK_SELECTORS = [
-  "p",
-  "li",
-  "blockquote",
-  "pre",
-  "h1",
-  "h2",
-  "h3",
-  "h4",
-  "h5",
-  "h6",
-  "td",
-  "th",
-].join(",")
+  'p',
+  'li',
+  'blockquote',
+  'pre',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'td',
+  'th',
+].join(',')
 
 function createAnchorEl(threadId: string) {
-  const el = document.createElement("span")
+  const el = document.createElement('span')
   el.setAttribute(THREAD_ANCHOR_ATTR, threadId)
   el.className = THREAD_ANCHOR_CLASS
   el.tabIndex = 0
-  el.setAttribute("role", "button")
+  el.setAttribute('role', 'button')
   return el
 }
 
@@ -97,12 +97,12 @@ export function wrapFirstOccurrenceWithThreadAnchor(
 ) {
   const needle = text.trim()
   if (needle.length < 2) return null
-  if (needle.includes("\n")) return null
+  if (needle.includes('\n')) return null
 
   const nodes = findTextNodes(root)
   if (nodes.length === 0) return null
 
-  const haystack = nodes.map(n => n.nodeValue ?? "").join("")
+  const haystack = nodes.map(n => n.nodeValue ?? '').join('')
   const index = haystack.indexOf(needle)
   if (index === -1) return null
 
@@ -126,10 +126,10 @@ export function updateThreadAnchorId(el: HTMLElement, threadId: string) {
 
 export function setThreadAnchorActive(el: HTMLElement, isActive: boolean) {
   if (isActive) {
-    el.setAttribute("data-thread-active", "true")
+    el.setAttribute('data-thread-active', 'true')
     return
   }
-  el.removeAttribute("data-thread-active")
+  el.removeAttribute('data-thread-active')
 }
 
 export function removeThreadAnchor(el: HTMLElement) {
