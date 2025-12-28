@@ -13,37 +13,37 @@ import {
   Share,
   Sun,
   Trash2,
-} from "lucide-react"
-import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
+} from 'lucide-react'
+import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 
-const MarkdownRenderer = lazy(() => import("./components/MarkdownRenderer"))
+const MarkdownRenderer = lazy(() => import('./components/MarkdownRenderer'))
 
-import Dialog, { DialogState } from "./components/Dialog"
-import HistoryPanel from "./components/HistoryPanel"
-import QuotesView from "./components/QuotesView"
-import SettingsModal from "./components/SettingsModal"
-import SharedBanner from "./components/SharedBanner"
-import StartView from "./components/StartView"
-import ThreadList from "./components/ThreadList"
-import ThreadPanel from "./components/ThreadPanel"
-import Tooltip from "./components/Tooltip"
+import Dialog, { DialogState } from './components/Dialog'
+import HistoryPanel from './components/HistoryPanel'
+import QuotesView from './components/QuotesView'
+import SettingsModal from './components/SettingsModal'
+import SharedBanner from './components/SharedBanner'
+import StartView from './components/StartView'
+import ThreadList from './components/ThreadList'
+import ThreadPanel from './components/ThreadPanel'
+import Tooltip from './components/Tooltip'
 
-import { useSession, createNewSession } from "./hooks/useSession"
-import { useDarkMode } from "./hooks/useDarkMode"
-import { useSettings } from "./hooks/useSettings"
-import { useQuotes } from "./hooks/useQuotes"
-import { useThreadManager } from "./hooks/useThreadManager"
-import { useTextSelection } from "./hooks/useTextSelection"
-import { useAiStreaming } from "./hooks/useAiStreaming"
-import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts"
-import { generateId } from "./lib/id"
+import { useSession, createNewSession } from './hooks/useSession'
+import { useDarkMode } from './hooks/useDarkMode'
+import { useSettings } from './hooks/useSettings'
+import { useQuotes } from './hooks/useQuotes'
+import { useThreadManager } from './hooks/useThreadManager'
+import { useTextSelection } from './hooks/useTextSelection'
+import { useAiStreaming } from './hooks/useAiStreaming'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { generateId } from './lib/id'
 import {
   removeThreadAnchor,
   setThreadAnchorActive,
   updateThreadAnchorId,
   wrapCurrentSelectionWithThreadAnchor,
   wrapFirstOccurrenceWithThreadAnchor,
-} from "./lib/threadAnchors"
+} from './lib/threadAnchors'
 
 import {
   getHistory,
@@ -53,13 +53,15 @@ import {
   getCurrentSessionId,
   setCurrentSessionId,
   extractTitle,
-} from "./services/sessionHistory"
-import { generateSessionSummary, streamThreadResponse } from "./services/aiService"
-import { Thread, ViewState, SourceMetadata, SessionMeta } from "./types"
+} from './services/sessionHistory'
+import { generateSessionSummary, streamThreadResponse } from './services/aiService'
+import { Thread, ViewState, SourceMetadata, SessionMeta, Message } from './types'
+
+const SESSION_ID_PATTERN = /^\/([a-zA-Z0-9_-]{10,})$/
 
 function getSessionIdFromUrl(): string | null {
   const path = window.location.pathname
-  const match = path.match(/^\/([a-zA-Z0-9_-]{10,})$/)
+  const match = path.match(SESSION_ID_PATTERN)
   return match ? match[1] : null
 }
 
@@ -73,18 +75,18 @@ const App: React.FC = () => {
 
   // View state
   const [viewState, setViewState] = useState<ViewState>(ViewState.START)
-  const [markdownContent, setMarkdownContent] = useState("")
+  const [markdownContent, setMarkdownContent] = useState('')
   const [sourceMetadata, setSourceMetadata] = useState<SourceMetadata | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [generalInputValue, setGeneralInputValue] = useState("")
+  const [generalInputValue, setGeneralInputValue] = useState('')
   const [isCreatingSession, setIsCreatingSession] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [dialog, setDialog] = useState<DialogState>({
     isOpen: false,
-    type: "alert",
-    title: "",
-    message: "",
+    type: 'alert',
+    title: '',
+    message: '',
   })
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -98,7 +100,7 @@ const App: React.FC = () => {
   const { settings, isSettingsOpen, openSettings, closeSettings, saveSettings } = useSettings()
   const { quotes, addQuote, deleteQuote, setQuotes } = useQuotes()
   const threadManager = useThreadManager()
-  const threadIdsKey = threadManager.threads.map(t => t.id).join("|")
+  const threadIdsKey = threadManager.threads.map(t => t.id).join('|')
   const { selection, clearSelection } = useTextSelection(
     contentRef,
     viewState === ViewState.READING
@@ -153,20 +155,20 @@ const App: React.FC = () => {
     let cancelled = false
     const tryApplyAnchors = (attempt: number) => {
       if (cancelled) return
-      if (!root.querySelector(".markdown-content")) {
+      if (!root.querySelector('.markdown-content')) {
         if (attempt < 120) requestAnimationFrame(() => tryApplyAnchors(attempt + 1))
         return
       }
 
       for (const thread of threadManager.threads) {
-        if (thread.context === "Entire Document") continue
+        if (thread.context === 'Entire Document') continue
         if (threadAnchorElsRef.current.has(thread.id)) continue
 
         const el = wrapFirstOccurrenceWithThreadAnchor(root, thread.context, thread.id)
         if (!el) continue
 
         el.title = `Open thread: ${thread.snippet}`
-        el.setAttribute("aria-label", `Open thread: ${thread.snippet}`)
+        el.setAttribute('aria-label', `Open thread: ${thread.snippet}`)
         setThreadAnchorActive(el, thread.id === threadManager.activeThreadId)
         threadAnchorElsRef.current.set(thread.id, el)
       }
@@ -194,7 +196,10 @@ const App: React.FC = () => {
         createdAt: t.createdAt,
         messages: t.messages.map(m => ({
           id: m.id,
-          role: m.role,
+          // Migrate "model" → "assistant" for backwards compatibility
+          role: m.role === 'model' ? 'assistant' : m.role,
+          // Add parts array for backwards compatibility
+          parts: [{ type: 'text' as const, text: m.text }],
           text: m.text,
           timestamp: m.timestamp,
         })),
@@ -218,7 +223,7 @@ const App: React.FC = () => {
 
         // Generate summary in background if needed
         const existing = getHistory().find(h => h.id === sessionId)
-        if (!existing?.summary && (settings.apiKey || settings.provider === "ollama")) {
+        if (!existing?.summary && (settings.apiKey || settings.provider === 'ollama')) {
           generateSessionSummary(session.session.markdownContent, settings).then(summary => {
             if (summary) {
               updateHistoryEntry(sessionId, { summary })
@@ -238,13 +243,13 @@ const App: React.FC = () => {
       setSessionId(newSessionId)
       if (!newSessionId) {
         setViewState(ViewState.START)
-        setMarkdownContent("")
+        setMarkdownContent('')
         threadManager.setThreads([])
         setQuotes([])
       }
     }
-    window.addEventListener("popstate", handlePopState)
-    return () => window.removeEventListener("popstate", handlePopState)
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -255,7 +260,7 @@ const App: React.FC = () => {
     const lastSessionId = getCurrentSessionId()
     if (lastSessionId) {
       // Navigate to last session
-      window.history.replaceState(null, "", `/${lastSessionId}`)
+      window.history.replaceState(null, '', `/${lastSessionId}`)
       setSessionId(lastSessionId)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -268,8 +273,8 @@ const App: React.FC = () => {
       }
     }
     if (showMoreMenu) {
-      document.addEventListener("mousedown", handleClickOutside)
-      return () => document.removeEventListener("mousedown", handleClickOutside)
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [showMoreMenu])
 
@@ -277,9 +282,9 @@ const App: React.FC = () => {
   const handleDocumentMouseDown = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement
     if (
-      !target.closest("button") &&
-      !target.closest("input") &&
-      !target.closest("[data-thread-anchor]")
+      !target.closest('button') &&
+      !target.closest('input') &&
+      !target.closest('[data-thread-anchor]')
     ) {
       clearSelection()
     }
@@ -296,13 +301,13 @@ const App: React.FC = () => {
   const handleThreadAnchorClick = useCallback(
     (e: React.MouseEvent) => {
       const target = e.target as HTMLElement
-      const el = target.closest<HTMLElement>("[data-thread-anchor]")
+      const el = target.closest<HTMLElement>('[data-thread-anchor]')
       if (!el) return
 
       const currentSelection = window.getSelection()
       if (currentSelection && !currentSelection.isCollapsed) return
 
-      const threadId = el.getAttribute("data-thread-anchor")
+      const threadId = el.getAttribute('data-thread-anchor')
       if (!threadId) return
 
       e.preventDefault()
@@ -314,13 +319,13 @@ const App: React.FC = () => {
 
   const handleThreadAnchorKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key !== "Enter" && e.key !== " ") return
+      if (e.key !== 'Enter' && e.key !== ' ') return
 
       const target = e.target as HTMLElement
-      const el = target.closest<HTMLElement>("[data-thread-anchor]")
+      const el = target.closest<HTMLElement>('[data-thread-anchor]')
       if (!el) return
 
-      const threadId = el.getAttribute("data-thread-anchor")
+      const threadId = el.getAttribute('data-thread-anchor')
       if (!threadId) return
 
       e.preventDefault()
@@ -334,27 +339,27 @@ const App: React.FC = () => {
     let exportText = markdownContent
 
     if (quotes.length > 0) {
-      exportText += "\n\n---\n\n# Saved Quotes\n\n"
+      exportText += '\n\n---\n\n# Saved Quotes\n\n'
       quotes.forEach(q => {
         exportText += `> "${q.text}"\n\n`
       })
     }
 
     if (threadManager.threads.length > 0) {
-      exportText += "\n\n---\n\n# Discussions\n\n"
+      exportText += '\n\n---\n\n# Discussions\n\n'
       threadManager.threads.forEach(t => {
         exportText += `## Thread: ${t.snippet}\n`
         exportText += `> **Context**: ${t.context}\n\n`
         t.messages.forEach(m => {
-          exportText += `**${m.role === "user" ? "User" : "AI"}**: ${m.text}\n\n`
+          exportText += `**${m.role === 'user' ? 'User' : 'AI'}**: ${m.text}\n\n`
         })
-        exportText += "---\n\n"
+        exportText += '---\n\n'
       })
     }
 
-    const blob = new Blob([exportText], { type: "text/markdown" })
+    const blob = new Blob([exportText], { type: 'text/markdown' })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
+    const a = document.createElement('a')
     a.href = url
     a.download = `threaded-export-${Date.now()}.md`
     a.click()
@@ -363,10 +368,10 @@ const App: React.FC = () => {
 
   // New session: navigate to / and clear state
   const handleNewSession = useCallback(() => {
-    window.history.pushState(null, "", "/")
+    window.history.pushState(null, '', '/')
     setSessionId(null)
     setCurrentSessionId(null)
-    setMarkdownContent("")
+    setMarkdownContent('')
     threadManager.setThreads([])
     setQuotes([])
     setSourceMetadata(null)
@@ -379,7 +384,7 @@ const App: React.FC = () => {
     try {
       const result = await createNewSession(content)
       if (result) {
-        window.history.pushState(null, "", `/${result.sessionId}`)
+        window.history.pushState(null, '', `/${result.sessionId}`)
         setSessionId(result.sessionId)
         setSourceMetadata(source || null)
         // useSession will load the session and add to history
@@ -391,7 +396,7 @@ const App: React.FC = () => {
 
   // Select from history: navigate to session URL
   const handleSelectSession = useCallback((id: string) => {
-    window.history.pushState(null, "", `/${id}`)
+    window.history.pushState(null, '', `/${id}`)
     setSessionId(id)
     // useSession handles loading, which triggers the effect that sets view state
   }, [])
@@ -423,9 +428,9 @@ const App: React.FC = () => {
       if (!markdownContent.trim()) {
         setDialog({
           isOpen: true,
-          type: "error",
-          title: "Cannot Share",
-          message: "No content to share. Please add some content first.",
+          type: 'error',
+          title: 'Cannot Share',
+          message: 'No content to share. Please add some content first.',
         })
         return
       }
@@ -436,16 +441,16 @@ const App: React.FC = () => {
         if (!result) {
           setDialog({
             isOpen: true,
-            type: "error",
-            title: "Share Failed",
-            message: "Failed to create shareable link. Please try again.",
+            type: 'error',
+            title: 'Share Failed',
+            message: 'Failed to create shareable link. Please try again.',
           })
           return
         }
 
         shareSessionId = result.sessionId
         setSessionId(shareSessionId)
-        window.history.pushState(null, "", `/${shareSessionId}`)
+        window.history.pushState(null, '', `/${shareSessionId}`)
       } finally {
         setIsCreatingSession(false)
       }
@@ -456,12 +461,12 @@ const App: React.FC = () => {
       await navigator.clipboard.writeText(shareUrl)
       setDialog({
         isOpen: true,
-        type: "success",
-        title: "Link Copied",
+        type: 'success',
+        title: 'Link Copied',
         message: `Share URL copied to clipboard: ${shareUrl}`,
       })
     } catch {
-      prompt("Copy this link:", shareUrl)
+      prompt('Copy this link:', shareUrl)
     }
   }
 
@@ -482,26 +487,26 @@ const App: React.FC = () => {
 
     setDialog({
       isOpen: true,
-      type: "confirm",
-      title: "Delete Session",
-      message: "Are you sure you want to delete this session? This cannot be undone.",
+      type: 'confirm',
+      title: 'Delete Session',
+      message: 'Are you sure you want to delete this session? This cannot be undone.',
       onConfirm: executeDeleteSession,
     })
   }
 
-  const createThread = async (action: "discuss" | "summarize") => {
+  const createThread = async (action: 'discuss' | 'summarize') => {
     if (!selection) return
 
     const newThreadId = Date.now().toString()
     const snippet =
-      selection.text.length > 30 ? selection.text.substring(0, 30) + "..." : selection.text
+      selection.text.length > 30 ? selection.text.substring(0, 30) + '...' : selection.text
 
     const anchorEl = contentRef.current
       ? wrapCurrentSelectionWithThreadAnchor(contentRef.current, newThreadId)
       : null
     if (anchorEl) {
       anchorEl.title = `Open thread: ${snippet}`
-      anchorEl.setAttribute("aria-label", `Open thread: ${snippet}`)
+      anchorEl.setAttribute('aria-label', `Open thread: ${snippet}`)
       threadAnchorElsRef.current.set(newThreadId, anchorEl)
     }
 
@@ -535,23 +540,24 @@ const App: React.FC = () => {
       }
     }
 
-    if (action === "discuss") {
+    if (action === 'discuss') {
       return
     }
 
     // For "summarize", add user message and stream AI response
-    const initialUserMessage = "Please explain this section in simple terms."
+    const initialUserMessage = 'Please explain this section in simple terms.'
     const initialUserMessageId = generateId()
-    const initialUserMsg = {
+    const initialUserMsg: Message = {
       id: initialUserMessageId,
-      role: "user" as const,
+      role: 'user',
+      parts: [{ type: 'text', text: initialUserMessage }],
       text: initialUserMessage,
       timestamp: Date.now(),
     }
     threadManager.addMessageToThread(apiThreadId, initialUserMsg)
 
     if (sessionId) {
-      const savedId = await session.addMessage(apiThreadId, "user", initialUserMessage)
+      const savedId = await session.addMessage(apiThreadId, 'user', initialUserMessage)
       if (savedId && savedId !== initialUserMessageId) {
         threadManager.replaceMessageId(apiThreadId, initialUserMessageId, savedId)
         initialUserMsg.id = savedId
@@ -564,17 +570,22 @@ const App: React.FC = () => {
       markdownContent,
       messages: [initialUserMsg],
       userMessage: initialUserMessage,
-      mode: "explain",
+      mode: 'explain',
     })
   }
 
-  const handleDeleteThread = (threadId: string) => {
+  const handleDeleteThread = async (threadId: string) => {
     const el = threadAnchorElsRef.current.get(threadId)
     if (el) {
       removeThreadAnchor(el)
       threadAnchorElsRef.current.delete(threadId)
     }
     threadManager.deleteThread(threadId)
+
+    // Delete from server if we have a session and are the owner
+    if (sessionId && session.isOwner) {
+      await session.deleteThread(threadId)
+    }
   }
 
   const handleCreateGeneralThread = async (e: React.FormEvent) => {
@@ -582,22 +593,23 @@ const App: React.FC = () => {
     if (!generalInputValue.trim()) return
 
     const initialMessage = generalInputValue
-    setGeneralInputValue("")
+    setGeneralInputValue('')
 
     const newThreadId = Date.now().toString()
     const initialMessageId = generateId()
-    const initialUserMsg = {
+    const initialUserMsg: Message = {
       id: initialMessageId,
-      role: "user" as const,
+      role: 'user',
+      parts: [{ type: 'text', text: initialMessage }],
       text: initialMessage,
       timestamp: Date.now(),
     }
     const newThread: Thread = {
       id: newThreadId,
-      context: "Entire Document",
+      context: 'Entire Document',
       messages: [initialUserMsg],
       createdAt: Date.now(),
-      snippet: "General Discussion",
+      snippet: 'General Discussion',
     }
 
     threadManager.addThread(newThread)
@@ -606,7 +618,7 @@ const App: React.FC = () => {
 
     let apiThreadId = newThreadId
     if (sessionId) {
-      const savedThreadId = await session.addThread("Entire Document", "General Discussion")
+      const savedThreadId = await session.addThread('Entire Document', 'General Discussion')
       if (savedThreadId && savedThreadId !== newThreadId) {
         threadManager.updateThreadId(newThreadId, savedThreadId)
         apiThreadId = savedThreadId
@@ -614,7 +626,7 @@ const App: React.FC = () => {
     }
 
     if (sessionId) {
-      const savedId = await session.addMessage(apiThreadId, "user", initialMessage)
+      const savedId = await session.addMessage(apiThreadId, 'user', initialMessage)
       if (savedId && savedId !== initialMessageId) {
         threadManager.replaceMessageId(apiThreadId, initialMessageId, savedId)
         initialUserMsg.id = savedId
@@ -623,11 +635,11 @@ const App: React.FC = () => {
 
     await streamResponse({
       threadId: apiThreadId,
-      context: "Entire Document",
+      context: 'Entire Document',
       markdownContent,
       messages: [initialUserMsg],
       userMessage: initialMessage,
-      mode: "discuss",
+      mode: 'discuss',
     })
   }
 
@@ -635,11 +647,17 @@ const App: React.FC = () => {
     if (!threadManager.activeThreadId || !threadManager.activeThread) return
 
     const userMessageId = generateId()
-    const userMessage = { id: userMessageId, role: "user" as const, text, timestamp: Date.now() }
+    const userMessage: Message = {
+      id: userMessageId,
+      role: 'user',
+      parts: [{ type: 'text', text }],
+      text,
+      timestamp: Date.now(),
+    }
     threadManager.addMessageToThread(threadManager.activeThreadId, userMessage)
 
     if (sessionId) {
-      const savedId = await session.addMessage(threadManager.activeThreadId, "user", text)
+      const savedId = await session.addMessage(threadManager.activeThreadId, 'user', text)
       if (savedId && savedId !== userMessageId) {
         threadManager.replaceMessageId(threadManager.activeThreadId, userMessageId, savedId)
         userMessage.id = savedId
@@ -652,7 +670,7 @@ const App: React.FC = () => {
       markdownContent,
       messages: [...threadManager.activeThread.messages, userMessage],
       userMessage: text,
-      mode: "discuss",
+      mode: 'discuss',
     })
   }
 
@@ -665,7 +683,7 @@ const App: React.FC = () => {
     const msgIndex = thread.messages.findIndex(m => m.id === messageId)
     if (msgIndex === -1) return
 
-    const isUserMessage = thread.messages[msgIndex].role === "user"
+    const isUserMessage = thread.messages[msgIndex].role === 'user'
     const historyForAI = [
       ...thread.messages.slice(0, msgIndex),
       { ...thread.messages[msgIndex], text: newText },
@@ -686,7 +704,7 @@ const App: React.FC = () => {
         markdownContent,
         messages: historyForAI,
         userMessage: newText,
-        mode: "discuss",
+        mode: 'discuss',
       })
     }
   }
@@ -710,22 +728,23 @@ const App: React.FC = () => {
 
     const messages = currentThread.messages
     const lastUserMessageIndex =
-      messages.length >= 2 && messages[messages.length - 1].role === "model"
+      messages.length >= 2 && messages[messages.length - 1].role === 'assistant'
         ? messages.length - 2
         : -1
 
-    if (lastUserMessageIndex < 0 || messages[lastUserMessageIndex].role !== "user") return
+    if (lastUserMessageIndex < 0 || messages[lastUserMessageIndex].role !== 'user') return
 
     const lastUserMessage = messages[lastUserMessageIndex].text
 
     threadManager.replaceLastMessage(threadManager.activeThreadId, {
       id: generateId(),
-      role: "model",
-      text: "",
+      role: 'assistant',
+      parts: [],
+      text: '',
       timestamp: Date.now(),
     })
 
-    let fullResponse = ""
+    let fullResponse = ''
     try {
       for await (const chunk of streamThreadResponse(
         currentThread.context,
@@ -733,20 +752,20 @@ const App: React.FC = () => {
         messages.slice(0, lastUserMessageIndex + 1),
         lastUserMessage,
         settings,
-        "discuss"
+        'discuss'
       )) {
         fullResponse += chunk
         threadManager.appendToLastMessage(threadManager.activeThreadId!, chunk)
       }
 
       if (sessionId && fullResponse) {
-        await session.addMessage(threadManager.activeThreadId!, "model", fullResponse)
+        await session.addMessage(threadManager.activeThreadId!, 'assistant', fullResponse)
       }
     } catch (error) {
       const aiError = error as { message?: string }
       threadManager.updateLastMessage(
         threadManager.activeThreadId!,
-        `Error: ${aiError.message || "An error occurred"}`
+        `Error: ${aiError.message || 'An error occurred'}`
       )
     }
   }
@@ -808,7 +827,7 @@ const App: React.FC = () => {
       <div className="flex flex-1 overflow-hidden">
         {/* Left Pane: Document View Container */}
         <div
-          className={`flex-1 h-full relative flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? "w-1/2" : "w-full"}`}
+          className={`flex-1 h-full relative flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-1/2' : 'w-full'}`}
           onMouseDown={handleDocumentMouseDown}
         >
           {/* Scrollable Content Area */}
@@ -835,9 +854,9 @@ const App: React.FC = () => {
                     <>
                       <span className="text-slate-300 dark:text-zinc-600">·</span>
                       <span className="text-sm text-slate-400 dark:text-zinc-500 truncate max-w-[180px]">
-                        {sourceMetadata.type === "paste"
-                          ? "Pasted"
-                          : sourceMetadata.type === "url"
+                        {sourceMetadata.type === 'paste'
+                          ? 'Pasted'
+                          : sourceMetadata.type === 'url'
                             ? (() => {
                                 try {
                                   return new URL(sourceMetadata.name!).hostname
@@ -855,7 +874,7 @@ const App: React.FC = () => {
                       className="text-sm text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-zinc-100 px-2.5 py-1 rounded-full font-medium transition-colors hover:bg-slate-100 dark:hover:bg-dark-elevated"
                     >
                       {threadManager.threads.length} thread
-                      {threadManager.threads.length !== 1 && "s"}
+                      {threadManager.threads.length !== 1 && 's'}
                     </button>
                   )}
                 </div>
@@ -865,7 +884,7 @@ const App: React.FC = () => {
                     <button
                       onClick={() => setViewState(ViewState.QUOTES)}
                       className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-dark-elevated text-amber-500 dark:text-amber-400 transition-colors"
-                      title={`${quotes.length} saved quote${quotes.length !== 1 ? "s" : ""}`}
+                      title={`${quotes.length} saved quote${quotes.length !== 1 ? 's' : ''}`}
                     >
                       <Bookmark size={18} />
                     </button>
@@ -885,7 +904,7 @@ const App: React.FC = () => {
                   <button
                     onClick={toggleDarkMode}
                     className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-dark-elevated text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 transition-colors"
-                    title={isDarkMode ? "Light mode" : "Dark mode"}
+                    title={isDarkMode ? 'Light mode' : 'Dark mode'}
                   >
                     {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
                   </button>
@@ -952,14 +971,14 @@ const App: React.FC = () => {
                 </div>
               </header>
               {/* API Key Warning Banner */}
-              {!settings.apiKey && settings.provider !== "ollama" && (
+              {!settings.apiKey && settings.provider !== 'ollama' && (
                 <button
                   onClick={openSettings}
                   className="w-full mb-8 flex items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-800 dark:text-amber-200 text-sm hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors group"
                 >
                   <AlertCircle size={18} className="shrink-0" />
                   <span className="flex-1 text-left">
-                    No API key configured for{" "}
+                    No API key configured for{' '}
                     {settings.provider.charAt(0).toUpperCase() + settings.provider.slice(1)}. Click
                     to open Settings.
                   </span>
@@ -990,7 +1009,7 @@ const App: React.FC = () => {
           {/* Floating General Chat Input */}
           <div className="absolute bottom-8 left-0 right-0 flex justify-center px-4 pointer-events-none z-10">
             <div
-              className={`transition-all duration-300 ${isSidebarOpen ? "max-w-sm" : "max-w-xl"} w-full pointer-events-auto`}
+              className={`transition-all duration-300 ${isSidebarOpen ? 'max-w-sm' : 'max-w-xl'} w-full pointer-events-auto`}
             >
               <form onSubmit={handleCreateGeneralThread} className="relative group">
                 <div className="absolute inset-0 bg-slate-900/5 dark:bg-zinc-100/5 rounded-full blur-md transform translate-y-2 group-hover:translate-y-1 transition-transform"></div>
@@ -1029,7 +1048,7 @@ const App: React.FC = () => {
 
         {/* Right Pane: Thread Sidebar */}
         <div
-          className={`fixed inset-y-0 right-0 w-[450px] transform transition-transform duration-300 ease-in-out shadow-2xl z-40 bg-white dark:bg-dark-surface border-l border-slate-200 dark:border-dark-border ${isSidebarOpen ? "translate-x-0" : "translate-x-full"}`}
+          className={`fixed inset-y-0 right-0 w-[450px] transform transition-transform duration-300 ease-in-out shadow-2xl z-40 bg-white dark:bg-dark-surface border-l border-slate-200 dark:border-dark-border ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}
         >
           {threadManager.activeThreadId ? (
             <ThreadPanel

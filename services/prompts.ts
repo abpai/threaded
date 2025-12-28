@@ -1,4 +1,4 @@
-import dedent from "dedent"
+import dedent from 'dedent'
 
 export interface PromptContext {
   fullDocument: string
@@ -38,7 +38,7 @@ export const PROMPTS = {
 
     SPECIFIC HIGHLIGHTED CONTEXT (Focus your answer on this):
     """
-    ${ctx.highlightedContext || ""}
+    ${ctx.highlightedContext || ''}
     """
 
     Answer the user's questions specifically about the highlighted context.
@@ -56,7 +56,7 @@ export const PROMPTS = {
 
     SPECIFIC HIGHLIGHTED CONTEXT (Focus your explanation on this):
     """
-    ${ctx.highlightedContext || ""}
+    ${ctx.highlightedContext || ''}
     """
 
     Your task is to EXPLAIN this highlighted section clearly and accessibly:
@@ -79,10 +79,10 @@ export function getSummaryPrompt(document: string): string {
   `
 }
 
-export type PromptMode = "discuss" | "explain"
+export type PromptMode = 'discuss' | 'explain'
 
 export function getSystemPrompt(context: string, fullDocument: string, mode: PromptMode): string {
-  const isGeneral = context === "Entire Document"
+  const isGeneral = context === 'Entire Document'
 
   if (isGeneral) {
     return PROMPTS.general({ fullDocument })

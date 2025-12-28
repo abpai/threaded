@@ -1,11 +1,21 @@
-import React from "react"
-import { X, MessageSquare, Clock, ArrowRight, FileText } from "lucide-react"
-import { Thread } from "../types"
+import React from 'react'
+import { X, MessageSquare, Clock, ArrowRight, FileText } from 'lucide-react'
+import { Thread } from '../types'
 
 interface ThreadListProps {
   threads: Thread[]
   onSelectThread: (threadId: string) => void
   onClose: () => void
+}
+
+const getTimeString = (timestamp: number): string => {
+  const now = Date.now()
+  if (timestamp > now) return 'Just now' // Clamp future timestamps
+  const diff = now - timestamp
+  if (diff < 60000) return 'Just now'
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
+  return 'Older'
 }
 
 const ThreadList: React.FC<ThreadListProps> = ({ threads, onSelectThread, onClose }) => {
@@ -15,14 +25,6 @@ const ThreadList: React.FC<ThreadListProps> = ({ threads, onSelectThread, onClos
     const lastB = b.messages.length > 0 ? b.messages[b.messages.length - 1].timestamp : b.createdAt
     return lastB - lastA
   })
-
-  const getTimeString = (timestamp: number) => {
-    const diff = Date.now() - timestamp
-    if (diff < 60000) return "Just now"
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
-    return "Older"
-  }
 
   return (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-dark-base transition-colors duration-300">
@@ -55,7 +57,7 @@ const ThreadList: React.FC<ThreadListProps> = ({ threads, onSelectThread, onClos
             const lastMessage =
               thread.messages.length > 0 ? thread.messages[thread.messages.length - 1] : null
 
-            const isGeneral = thread.context === "Entire Document"
+            const isGeneral = thread.context === 'Entire Document'
 
             return (
               <button
@@ -66,7 +68,7 @@ const ThreadList: React.FC<ThreadListProps> = ({ threads, onSelectThread, onClos
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span
-                      className={`p-1.5 rounded-md ${isGeneral ? "bg-indigo-100 text-indigo-600 dark:bg-accent-glow dark:text-accent" : "bg-cyan-100 text-cyan-600 dark:bg-accent-glow dark:text-accent"}`}
+                      className={`p-1.5 rounded-md ${isGeneral ? 'bg-indigo-100 text-indigo-600 dark:bg-accent-glow dark:text-accent' : 'bg-cyan-100 text-cyan-600 dark:bg-accent-glow dark:text-accent'}`}
                     >
                       {isGeneral ? <FileText size={14} /> : <MessageSquare size={14} />}
                     </span>
@@ -84,12 +86,12 @@ const ThreadList: React.FC<ThreadListProps> = ({ threads, onSelectThread, onClos
                   {lastMessage ? (
                     <span
                       className={
-                        lastMessage.role === "user"
-                          ? "text-slate-500 dark:text-zinc-500"
-                          : "text-slate-800 dark:text-zinc-300"
+                        lastMessage.role === 'user'
+                          ? 'text-slate-500 dark:text-zinc-500'
+                          : 'text-slate-800 dark:text-zinc-300'
                       }
                     >
-                      {lastMessage.role === "user" ? "You: " : "AI: "}
+                      {lastMessage.role === 'user' ? 'You: ' : 'AI: '}
                       {lastMessage.text}
                     </span>
                   ) : (

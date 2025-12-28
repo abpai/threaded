@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo, Dispatch, SetStateAction } from "react"
-import { Thread, Message } from "../types"
+import { useState, useCallback, useMemo, Dispatch, SetStateAction } from 'react'
+import { Thread, Message, MessagePart, getTextFromParts } from '../types'
 
 export interface UseThreadManagerResult {
   threads: Thread[]
@@ -17,6 +17,7 @@ export interface UseThreadManagerResult {
   replaceLastMessage: (threadId: string, message: Message) => void
   updateMessageToThread: (threadId: string, messageId: string, text: string) => void
   truncateThreadAfter: (threadId: string, messageId: string) => void
+  updateMessageParts: (threadId: string, messageId: string, parts: MessagePart[]) => void
 }
 
 export function useThreadManager(initialThreads: Thread[] = []): UseThreadManagerResult {
@@ -69,10 +70,21 @@ export function useThreadManager(initialThreads: Thread[] = []): UseThreadManage
         if (t.id === threadId) {
           const messages = [...t.messages]
           const lastMessage = messages[messages.length - 1]
-          if (lastMessage && lastMessage.role === "model") {
+          if (lastMessage && lastMessage.role === 'assistant') {
+            // Append to text field (for legacy streaming)
+            const newText = lastMessage.text + chunk
+            // Also update parts if they exist
+            const parts = [...(lastMessage.parts || [])]
+            const lastPart = parts[parts.length - 1]
+            if (lastPart?.type === 'text') {
+              parts[parts.length - 1] = { ...lastPart, text: lastPart.text + chunk }
+            } else {
+              parts.push({ type: 'text', text: chunk })
+            }
             messages[messages.length - 1] = {
               ...lastMessage,
-              text: lastMessage.text + chunk,
+              text: newText,
+              parts,
             }
           }
           return { ...t, messages }
@@ -88,8 +100,12 @@ export function useThreadManager(initialThreads: Thread[] = []): UseThreadManage
         if (t.id === threadId) {
           const messages = [...t.messages]
           const lastMessage = messages[messages.length - 1]
-          if (lastMessage && lastMessage.role === "model") {
-            messages[messages.length - 1] = { ...lastMessage, text }
+          if (lastMessage && lastMessage.role === 'assistant') {
+            messages[messages.length - 1] = {
+              ...lastMessage,
+              text,
+              parts: [{ type: 'text', text }],
+            }
           }
           return { ...t, messages }
         }
@@ -113,7 +129,9 @@ export function useThreadManager(initialThreads: Thread[] = []): UseThreadManage
     setThreads(prev =>
       prev.map(t => {
         if (t.id === threadId) {
-          const messages = t.messages.map(m => (m.id === messageId ? { ...m, text } : m))
+          const messages = t.messages.map(m =>
+            m.id === messageId ? { ...m, text, parts: [{ type: 'text' as const, text }] } : m
+          )
           return { ...t, messages }
         }
         return t
@@ -136,6 +154,24 @@ export function useThreadManager(initialThreads: Thread[] = []): UseThreadManage
     )
   }, [])
 
+  // New: Update message parts for UIMessage streaming
+  const updateMessageParts = useCallback(
+    (threadId: string, messageId: string, parts: MessagePart[]) => {
+      setThreads(prev =>
+        prev.map(t => {
+          if (t.id !== threadId) return t
+          const messages = t.messages.map(m => {
+            if (m.id !== messageId) return m
+            const text = getTextFromParts(parts)
+            return { ...m, parts, text }
+          })
+          return { ...t, messages }
+        })
+      )
+    },
+    []
+  )
+
   return {
     threads,
     activeThreadId,
@@ -152,5 +188,6 @@ export function useThreadManager(initialThreads: Thread[] = []): UseThreadManage
     replaceLastMessage,
     updateMessageToThread,
     truncateThreadAfter,
+    updateMessageParts,
   }
 }

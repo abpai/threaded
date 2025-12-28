@@ -1,6 +1,6 @@
 export interface ParseResult {
   markdown: string
-  source: "file" | "url"
+  source: 'file' | 'url'
 }
 
 interface ParseErrorResponse {
@@ -9,35 +9,57 @@ interface ParseErrorResponse {
 
 export async function parseFile(file: File): Promise<ParseResult> {
   const formData = new FormData()
-  formData.append("file", file)
+  formData.append('file', file)
 
-  const response = await fetch("/api/parse", {
-    method: "POST",
+  const response = await fetch('/api/parse', {
+    method: 'POST',
     body: formData,
   })
 
-  const data: ParseResult | ParseErrorResponse = await response.json()
+  const text = await response.text()
+  let data: ParseResult | ParseErrorResponse | null = null
+  try {
+    data = JSON.parse(text) as ParseResult | ParseErrorResponse
+  } catch {
+    data = null
+  }
 
   if (!response.ok) {
     const errorData = data as ParseErrorResponse
-    throw new Error(errorData.error || "Failed to parse file")
+    const message = errorData?.error || text || 'Failed to parse file'
+    throw new Error(message)
+  }
+
+  if (!data || !('markdown' in data)) {
+    throw new Error('Invalid response from parser')
   }
 
   return data as ParseResult
 }
 
 export async function parseUrl(url: string): Promise<ParseResult> {
-  const response = await fetch("/api/parse", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const response = await fetch('/api/parse', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url }),
   })
 
-  const data: ParseResult | ParseErrorResponse = await response.json()
+  const text = await response.text()
+  let data: ParseResult | ParseErrorResponse | null = null
+  try {
+    data = JSON.parse(text) as ParseResult | ParseErrorResponse
+  } catch {
+    data = null
+  }
 
   if (!response.ok) {
     const errorData = data as ParseErrorResponse
-    throw new Error(errorData.error || "Failed to fetch URL")
+    const message = errorData?.error || text || 'Failed to fetch URL'
+    throw new Error(message)
+  }
+
+  if (!data || !('markdown' in data)) {
+    throw new Error('Invalid response from parser')
   }
 
   return data as ParseResult

@@ -1,5 +1,5 @@
-import { useState, useCallback, Dispatch, SetStateAction } from "react"
-import { Quote } from "../types"
+import { useState, useCallback, Dispatch, SetStateAction } from 'react'
+import { Quote } from '../types'
 
 export interface UseQuotesResult {
   quotes: Quote[]

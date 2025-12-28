@@ -1,6 +1,7 @@
-import { Check, CheckCircle2, ChevronDown, Loader2, RefreshCw, Save, X } from "lucide-react"
-import React, { useEffect, useRef, useState } from "react"
-import { AiProvider, AppSettings } from "../types"
+import { Check, ChevronDown, Loader2, RefreshCw, Save, X } from 'lucide-react'
+import React, { useEffect, useRef, useState } from 'react'
+import { DEFAULT_MODELS, DEFAULT_MODEL_ID } from '../lib/defaultModels'
+import { AiProvider, AppSettings } from '../types'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -10,20 +11,20 @@ interface SettingsModalProps {
 }
 
 const PROVIDERS: { id: AiProvider; name: string }[] = [
-  { id: "google", name: "Google Gemini" },
-  { id: "openai", name: "OpenAI" },
-  { id: "anthropic", name: "Anthropic Claude" },
-  { id: "ollama", name: "Ollama (Local)" },
+  { id: 'google', name: 'Google Gemini' },
+  { id: 'openai', name: 'OpenAI' },
+  { id: 'anthropic', name: 'Anthropic Claude' },
+  { id: 'ollama', name: 'Ollama (Local)' },
 ]
 
 const API_KEY_LINKS: Record<AiProvider, { url: string; label: string } | null> = {
-  google: { url: "https://aistudio.google.com/apikey", label: "Get API key" },
-  openai: { url: "https://platform.openai.com/api-keys", label: "Get API key" },
-  anthropic: { url: "https://console.anthropic.com/settings/keys", label: "Get API key" },
-  ollama: { url: "https://ollama.readthedocs.io/en/api/", label: "Ollama docs" },
+  google: { url: 'https://aistudio.google.com/apikey', label: 'Get API key' },
+  openai: { url: 'https://platform.openai.com/api-keys', label: 'Get API key' },
+  anthropic: { url: 'https://console.anthropic.com/settings/keys', label: 'Get API key' },
+  ollama: { url: 'https://ollama.readthedocs.io/en/api/', label: 'Ollama docs' },
 }
 
-const API_KEYS_STORAGE_KEY = "threaded-api-keys"
+const API_KEYS_STORAGE_KEY = 'threaded-api-keys'
 
 // API Response types for model listing
 interface GoogleModelsResponse {
@@ -74,23 +75,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [availableModels, setAvailableModels] = useState<string[]>([])
   const [isModelListOpen, setIsModelListOpen] = useState(false)
   const [isLoadingModels, setIsLoadingModels] = useState(false)
-  const [isValidated, setIsValidated] = useState(false)
+  const [modelFetchError, setModelFetchError] = useState<string | null>(null)
 
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const fetchControllerRef = useRef<AbortController | null>(null)
 
   // Reset local state when modal opens
   useEffect(() => {
     if (isOpen) {
       setSettings(currentSettings)
-      setAvailableModels([])
-      setIsValidated(currentSettings.provider === "ollama")
-
-      // Auto-validate if key exists
-      if (currentSettings.apiKey && currentSettings.provider !== "ollama") {
-        fetchModels(currentSettings)
-      }
+      setAvailableModels(DEFAULT_MODELS[currentSettings.provider])
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, currentSettings])
 
   // Handle clicking outside to close dropdown
@@ -100,17 +95,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         setIsModelListOpen(false)
       }
     }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   if (!isOpen) return null
 
   const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newProvider = e.target.value as AiProvider
-    let newBaseUrl = ""
-    if (newProvider === "openai") newBaseUrl = "https://api.openai.com/v1"
-    if (newProvider === "ollama") newBaseUrl = "http://localhost:11434/v1"
+    let newBaseUrl = ''
+    if (newProvider === 'openai') newBaseUrl = 'https://api.openai.com/v1'
+    if (newProvider === 'ollama') newBaseUrl = 'http://localhost:11434'
 
     // Save current API key before switching
     if (settings.apiKey) {
@@ -119,93 +114,105 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
     // Load stored API key for new provider
     const storedKeys = getStoredApiKeys()
-    const storedApiKey = storedKeys[newProvider] || ""
+    const storedApiKey = storedKeys[newProvider] || ''
 
     setSettings(prev => ({
       ...prev,
       provider: newProvider,
-      modelId: "",
+      modelId: DEFAULT_MODEL_ID[newProvider],
       baseUrl: newBaseUrl,
       apiKey: storedApiKey,
     }))
-    setAvailableModels([])
-    setIsValidated(newProvider === "ollama")
+    setAvailableModels(DEFAULT_MODELS[newProvider])
   }
 
-  const fetchModels = async (settingsOverride?: AppSettings) => {
-    const activeSettings = settingsOverride || settings
-
-    if (!activeSettings.apiKey && activeSettings.provider !== "ollama") {
-      setIsValidated(false)
+  const fetchModels = async () => {
+    if (!settings.apiKey && settings.provider !== 'ollama') {
       return
     }
 
+    // Cancel any in-flight request
+    if (fetchControllerRef.current) {
+      fetchControllerRef.current.abort()
+    }
+    const controller = new AbortController()
+    fetchControllerRef.current = controller
+
     setIsLoadingModels(true)
-    setIsValidated(false)
+    setModelFetchError(null)
     let fetched: { id: string; created?: number; created_at?: string }[] = []
 
     try {
-      if (activeSettings.provider === "google") {
+      if (settings.provider === 'google') {
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models?key=${activeSettings.apiKey}`
+          `https://generativelanguage.googleapis.com/v1beta/models?key=${settings.apiKey}`,
+          { signal: controller.signal }
         )
-        if (!response.ok) throw new Error("Failed to fetch models")
+        if (!response.ok) throw new Error('Failed to fetch models')
         const data: GoogleModelsResponse = await response.json()
         if (data.models) {
           fetched = data.models
-            .filter(m => m.supportedGenerationMethods?.includes("generateContent"))
-            .map(m => ({ id: m.name.replace("models/", "") }))
+            .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
+            .map(m => ({ id: m.name.replace('models/', '') }))
         }
-      } else if (activeSettings.provider === "openai" || activeSettings.provider === "ollama") {
-        const baseUrl =
-          activeSettings.baseUrl ||
-          (activeSettings.provider === "openai"
-            ? "https://api.openai.com/v1"
-            : "http://localhost:11434/v1")
+      } else if (settings.provider === 'openai') {
+        const baseUrl = settings.baseUrl || 'https://api.openai.com/v1'
         const headers: Record<string, string> = {}
-        if (activeSettings.apiKey) {
-          headers["Authorization"] = `Bearer ${activeSettings.apiKey}`
+        if (settings.apiKey) {
+          headers['Authorization'] = `Bearer ${settings.apiKey}`
         }
-
-        const response = await fetch(`${baseUrl}/models`, { headers })
-        if (!response.ok) throw new Error("Failed to fetch models")
+        const response = await fetch(`${baseUrl}/models`, { headers, signal: controller.signal })
+        if (!response.ok) throw new Error('Failed to fetch models')
         const data: OpenAIModelsResponse = await response.json()
         if (data.data) {
           fetched = data.data.map(m => ({ id: m.id, created: m.created }))
         }
-      } else if (activeSettings.provider === "anthropic") {
-        const response = await fetch("https://api.anthropic.com/v1/models", {
+      } else if (settings.provider === 'ollama') {
+        const baseUrl = settings.baseUrl || 'http://localhost:11434'
+        const response = await fetch(`${baseUrl}/api/tags`, { signal: controller.signal })
+        if (!response.ok) throw new Error('Failed to fetch models')
+        const data = await response.json()
+        if (data.models) {
+          fetched = data.models.map((m: { name: string }) => ({ id: m.name }))
+        }
+      } else if (settings.provider === 'anthropic') {
+        const response = await fetch('https://api.anthropic.com/v1/models', {
           headers: {
-            "x-api-key": activeSettings.apiKey,
-            "anthropic-version": "2023-06-01",
-            "anthropic-dangerous-direct-browser-access": "true",
+            'x-api-key': settings.apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
           },
+          signal: controller.signal,
         })
-        if (!response.ok) throw new Error("Failed to fetch models")
+        if (!response.ok) throw new Error('Failed to fetch models')
         const data: AnthropicModelsResponse = await response.json()
         if (data.data) {
           fetched = data.data.map(m => ({ id: m.id, created_at: m.created_at }))
         }
       }
-      setIsValidated(true)
     } catch (error) {
-      console.error("Error fetching models:", error)
-      setIsValidated(false)
+      if (error instanceof Error && error.name === 'AbortError') {
+        return // Request was cancelled, don't update state
+      }
+      console.error('Error fetching models:', error)
+      setModelFetchError(error instanceof Error ? error.message : 'Failed to fetch models')
+      setIsLoadingModels(false)
+      return
     }
 
     if (fetched.length > 0) {
       // Filter and Sort
       let filtered = fetched
 
-      if (activeSettings.provider === "google") {
-        filtered = fetched.filter(m => m.id.toLowerCase().includes("gemini"))
-      } else if (activeSettings.provider === "openai") {
+      if (settings.provider === 'google') {
+        filtered = fetched.filter(m => m.id.toLowerCase().includes('gemini'))
+      } else if (settings.provider === 'openai') {
         filtered = fetched
-          .filter(m => m.id.toLowerCase().startsWith("gpt"))
+          .filter(m => m.id.toLowerCase().startsWith('gpt'))
           .sort((a, b) => (b.created || 0) - (a.created || 0))
-      } else if (activeSettings.provider === "anthropic") {
+      } else if (settings.provider === 'anthropic') {
         filtered = fetched
-          .filter(m => m.id.toLowerCase().includes("claude"))
+          .filter(m => m.id.toLowerCase().includes('claude'))
           .sort((a, b) => {
             if (!a.created_at) return 1
             if (!b.created_at) return -1
@@ -213,15 +220,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           })
       }
 
-      const uniqueModels = Array.from(new Set(filtered.map(m => m.id)))
+      const fetchedIds = Array.from(new Set(filtered.map(m => m.id)))
+      const defaults = DEFAULT_MODELS[settings.provider]
+      const merged = [...fetchedIds, ...defaults.filter(d => !fetchedIds.includes(d))]
 
-      setAvailableModels(uniqueModels)
+      setAvailableModels(merged)
       setIsModelListOpen(true)
-
-      // Auto-select first model from fetched list
-      if (uniqueModels.length > 0) {
-        setSettings(prev => ({ ...prev, modelId: uniqueModels[0] }))
-      }
     }
 
     setIsLoadingModels(false)
@@ -282,39 +286,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* API Key */}
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
-              API Key{" "}
-              {settings.provider === "ollama" && (
+              API Key{' '}
+              {settings.provider === 'ollama' && (
                 <span className="text-slate-400 dark:text-zinc-500 font-normal">(Optional)</span>
               )}
             </label>
-            <div className="relative">
-              <input
-                type="password"
-                value={settings.apiKey}
-                onChange={e => {
-                  setSettings({ ...settings, apiKey: e.target.value })
-                  setIsValidated(false)
-                }}
-                onBlur={() => fetchModels()}
-                placeholder={
-                  settings.provider === "ollama"
-                    ? "Optional for local Ollama"
-                    : `Enter your ${PROVIDERS.find(p => p.id === settings.provider)?.name} API Key`
-                }
-                className={`w-full bg-slate-50 dark:bg-dark-elevated border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 transition-all ${
-                  isValidated
-                    ? "border-green-500/50 focus:border-green-500 focus:ring-green-500/20"
-                    : "border-slate-200 dark:border-dark-border focus:ring-accent/50 focus:border-accent"
-                }`}
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none transition-all duration-200">
-                {isLoadingModels ? (
-                  <Loader2 size={18} className="animate-spin text-slate-400" />
-                ) : isValidated ? (
-                  <CheckCircle2 size={18} className="text-green-500 animate-in zoom-in" />
-                ) : null}
-              </div>
-            </div>
+            <input
+              type="password"
+              value={settings.apiKey}
+              onChange={e => setSettings({ ...settings, apiKey: e.target.value })}
+              placeholder={
+                settings.provider === 'ollama'
+                  ? 'Optional for local Ollama'
+                  : `Enter your ${PROVIDERS.find(p => p.id === settings.provider)?.name} API Key`
+              }
+              className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
+            />
             <p className="mt-1.5 text-xs text-slate-500 dark:text-zinc-400">
               {API_KEY_LINKS[settings.provider] && (
                 <>
@@ -330,7 +317,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </>
               )}
               Keys are stored locally in your browser.
-              {settings.provider === "ollama" && (
+              {settings.provider === 'ollama' && (
                 <span className="block mt-1 text-amber-600 dark:text-amber-400">
                   Enable CORS: OLLAMA_ORIGINS=* ollama serve
                 </span>
@@ -339,89 +326,90 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
 
           {/* Model Name (Searchable Combobox) */}
-          <div
-            className={`transition-all duration-300 ease-in-out overflow-hidden ${
-              isValidated || settings.provider === "ollama"
-                ? "max-h-[200px] opacity-100 translate-y-0"
-                : "max-h-0 opacity-0 -translate-y-2"
-            }`}
-          >
-            <div ref={dropdownRef} className="relative">
-              <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
-                Model Name
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={settings.modelId}
-                  onChange={e => {
-                    setSettings({ ...settings, modelId: e.target.value })
-                    setIsModelListOpen(true)
-                  }}
-                  onFocus={() => setIsModelListOpen(true)}
-                  placeholder="e.g. gpt-4o, gemini-1.5-flash, llama3.2"
-                  className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => fetchModels()}
-                  disabled={(!settings.apiKey && settings.provider !== "ollama") || isLoadingModels}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-accent disabled:opacity-50 disabled:hover:text-slate-400 transition-colors"
-                  title="Fetch models from provider"
-                >
-                  {isLoadingModels ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <RefreshCw size={16} />
-                  )}
-                </button>
-              </div>
-
-              {/* Dropdown List */}
-              {isModelListOpen && (
-                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-dark-elevated border border-slate-200 dark:border-dark-border rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                  {filteredModels.length > 0 ? (
-                    filteredModels.map(model => (
-                      <button
-                        key={model}
-                        type="button"
-                        onClick={() => {
-                          setSettings({ ...settings, modelId: model })
-                          setIsModelListOpen(false)
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-700 flex items-center justify-between"
-                      >
-                        <span>{model}</span>
-                        {settings.modelId === model && <Check size={14} className="text-accent" />}
-                      </button>
-                    ))
-                  ) : (
-                    <div className="px-4 py-3 text-xs text-slate-500 dark:text-zinc-500 text-center">
-                      No matching models found.
-                    </div>
-                  )}
-                </div>
-              )}
+          <div ref={dropdownRef} className="relative">
+            <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
+              Model Name
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={settings.modelId}
+                onChange={e => {
+                  setSettings({ ...settings, modelId: e.target.value })
+                  setIsModelListOpen(true)
+                }}
+                onFocus={() => setIsModelListOpen(true)}
+                placeholder="e.g. gpt-5.2-chat-latest, gemini-3-flash-preview, claude-opus-4-5-20251101"
+                className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => fetchModels()}
+                disabled={(!settings.apiKey && settings.provider !== 'ollama') || isLoadingModels}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-slate-400 transition-colors"
+                title={
+                  !settings.apiKey && settings.provider !== 'ollama'
+                    ? 'Enter API key to fetch latest models'
+                    : 'Refresh models from provider'
+                }
+              >
+                {isLoadingModels ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={16} />
+                )}
+              </button>
             </div>
+
+            {/* Dropdown List */}
+            {isModelListOpen && (
+              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-dark-elevated border border-slate-200 dark:border-dark-border rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                {filteredModels.length > 0 ? (
+                  filteredModels.map(model => (
+                    <button
+                      key={model}
+                      type="button"
+                      onClick={() => {
+                        setSettings({ ...settings, modelId: model })
+                        setIsModelListOpen(false)
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-700 flex items-center justify-between"
+                    >
+                      <span>{model}</span>
+                      {settings.modelId === model && <Check size={14} className="text-accent" />}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-xs text-slate-500 dark:text-zinc-500 text-center">
+                    No matching models found.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Model fetch error */}
+            {modelFetchError && (
+              <p className="mt-1.5 text-xs text-red-500 dark:text-red-400">{modelFetchError}</p>
+            )}
           </div>
 
           {/* Base URL (Optional for OpenAI, Required for Ollama) */}
-          {((settings.provider === "openai" && isValidated) || settings.provider === "ollama") && (
+          {(settings.provider === 'openai' || settings.provider === 'ollama') && (
             <div className="animate-in fade-in slide-in-from-top-2 duration-300">
               <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
-                Base URL{" "}
+                Base URL{' '}
                 <span className="text-slate-400 dark:text-zinc-500 font-normal">
-                  {settings.provider === "ollama" ? "(Required)" : "(Optional)"}
+                  {settings.provider === 'ollama' ? '(Required)' : '(Optional)'}
                 </span>
               </label>
               <input
                 type="text"
-                value={settings.baseUrl || ""}
+                value={settings.baseUrl || ''}
                 onChange={e => setSettings({ ...settings, baseUrl: e.target.value })}
                 placeholder={
-                  settings.provider === "ollama"
-                    ? "http://localhost:11434/v1"
-                    : "https://api.openai.com/v1"
+                  settings.provider === 'ollama'
+                    ? 'http://localhost:11434'
+                    : 'https://api.openai.com/v1'
                 }
                 className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
               />
