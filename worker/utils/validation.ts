@@ -7,16 +7,23 @@ export const LIMITS = {
 
 export const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ValidationError'
+  }
+}
+
 export function validateString(value: unknown, maxLength: number, fieldName: string): string {
-  if (typeof value !== "string") {
-    throw new Error(`${fieldName} must be a string`)
+  if (typeof value !== 'string') {
+    throw new ValidationError(`${fieldName} must be a string`)
   }
   const trimmed = value.trim()
   if (trimmed.length === 0) {
-    throw new Error(`${fieldName} cannot be empty`)
+    throw new ValidationError(`${fieldName} cannot be empty`)
   }
   if (trimmed.length > maxLength) {
-    throw new Error(`${fieldName} exceeds maximum length of ${maxLength} bytes`)
+    throw new ValidationError(`${fieldName} exceeds maximum length of ${maxLength} characters`)
   }
   return trimmed
 }

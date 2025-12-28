@@ -1,7 +1,7 @@
 const SEPARATOR_PATTERN = /^\|[\s-]+\|[\s-|]+$/
 
 export function fixMalformedTables(markdown: string): string {
-  const lines = markdown.split("\n")
+  const lines = markdown.split('\n')
   const result: string[] = []
 
   for (const line of lines) {
@@ -13,5 +13,5 @@ export function fixMalformedTables(markdown: string): string {
     result.push(line)
   }
 
-  return result.join("\n")
+  return result.join('\n')
 }

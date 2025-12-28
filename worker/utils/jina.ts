@@ -1,9 +1,9 @@
 export async function parseUrlWithJina(url: string, apiKey?: string): Promise<string> {
   const jinaUrl = `https://r.jina.ai/${url}`
 
-  const headers: Record<string, string> = { Accept: "text/markdown" }
+  const headers: Record<string, string> = { Accept: 'text/markdown' }
   if (apiKey) {
-    headers["Authorization"] = `Bearer ${apiKey}`
+    headers['Authorization'] = `Bearer ${apiKey}`
   }
 
   const response = await fetch(jinaUrl, { headers })

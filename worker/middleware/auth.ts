@@ -1,4 +1,4 @@
-import type { Env } from "../types"
+import type { Env } from '../types'
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false
@@ -18,7 +18,7 @@ export async function verifyOwnerToken(
   token: string | null
 ): Promise<boolean> {
   if (!token) return false
-  const result = await env.DB.prepare("SELECT owner_token FROM sessions WHERE id = ?")
+  const result = await env.DB.prepare('SELECT owner_token FROM sessions WHERE id = ?')
     .bind(sessionId)
     .first<{ owner_token: string }>()
   if (!result?.owner_token) return false
