@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback } from 'react'
 
-const STORAGE_KEY = "threaded-dark-mode"
+const STORAGE_KEY = 'threaded-dark-mode'
 
 export interface UseDarkModeResult {
   isDarkMode: boolean
@@ -11,7 +11,7 @@ export function useDarkMode(): UseDarkModeResult {
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored !== null) {
-      return stored === "true"
+      return stored === 'true'
     }
     return false
   })
@@ -19,9 +19,9 @@ export function useDarkMode(): UseDarkModeResult {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, String(isDarkMode))
     if (isDarkMode) {
-      document.documentElement.classList.add("dark")
+      document.documentElement.classList.add('dark')
     } else {
-      document.documentElement.classList.remove("dark")
+      document.documentElement.classList.remove('dark')
     }
   }, [isDarkMode])
 

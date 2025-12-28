@@ -1,7 +1,7 @@
-import { SessionMeta } from "../types"
+import { SessionMeta } from '../types'
 
-const HISTORY_KEY = "threaded:session-history"
-const CURRENT_KEY = "threaded:current-session"
+const HISTORY_KEY = 'threaded:session-history'
+const CURRENT_KEY = 'threaded:current-session'
 const MAX_HISTORY = 50
 
 export type SessionHistoryEntry = SessionMeta
@@ -49,10 +49,10 @@ export function setCurrentSessionId(id: string | null): void {
 }
 
 export function extractTitle(document: string): string {
-  const firstLine = document.trim().split("\n")[0] || ""
-  const cleaned = firstLine.replace(/^#+\s*/, "").trim()
+  const firstLine = document.trim().split('\n')[0] || ''
+  const cleaned = firstLine.replace(/^#+\s*/, '').trim()
   if (cleaned.length > 60) {
-    return cleaned.slice(0, 57) + "..."
+    return cleaned.slice(0, 57) + '...'
   }
-  return cleaned || "Untitled"
+  return cleaned || 'Untitled'
 }

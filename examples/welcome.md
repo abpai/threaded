@@ -8,13 +8,13 @@ Think about how you actually think. When you're learning something new, do you f
 
 Traditional AI chat makes this impossible. Every message marches forward in a single file. Want to explore an alternative? You either lose your current thread or start an entirely new conversation, orphaning all that context.
 
-## The Solution: Threaded Conversations
+## The Solution: Threaded
 
 **Threaded** treats conversations as explorable graphs, not linear threads. Branch discussions at any point. Explore tangents without losing your place. Keep multiple lines of inquiry alive simultaneously.
 
 This is how humans actually think—and how AI collaboration should work.
 
-![Start View - Where every journey begins](/guide-start-view.png)
+![Start View - Where every journey begins](/guide-start-view.jpg)
 
 ---
 
@@ -27,6 +27,7 @@ Threaded works with any text-based content. You have three ways to get started:
 **Paste directly** — Copy markdown, plain text, or any content and paste it into the text area. Great for quick explorations of articles, documentation, or your own writing.
 
 **Upload a file** — Drag and drop or click to upload. Threaded handles:
+
 - Markdown (`.md`) and plain text (`.txt`)
 - PDFs (`.pdf`)
 - Word documents (`.docx`)
@@ -36,7 +37,7 @@ Threaded works with any text-based content. You have three ways to get started:
 
 Once your content is loaded, you'll see it beautifully rendered in a clean reading view. But this is where the magic begins...
 
-![Reading View - Your document, ready for exploration](/guide-reading-view.png)
+![Reading View - Your document, ready for exploration](/guide-reading-view.jpg)
 
 ---
 
@@ -48,7 +49,7 @@ Here's where Threaded diverges from everything else.
 
 See something interesting? Confusing? Worth exploring further? Just highlight it. A small tooltip appears with your options:
 
-![Selection Tooltip - Your gateway to deeper understanding](/guide-selection-tooltip.png)
+![Selection Tooltip - Your gateway to deeper understanding](/guide-selection-tooltip.jpg)
 
 ### Your Options
 
@@ -64,7 +65,7 @@ See something interesting? Confusing? Worth exploring further? Just highlight it
 
 Go ahead—highlight the sentence below and click "Explain":
 
-> *The epistemological implications of distributed cognition suggest that knowledge isn't merely stored but actively constructed through interactions between agents and their environment.*
+> _The epistemological implications of distributed cognition suggest that knowledge isn't merely stored but actively constructed through interactions between agents and their environment._
 
 See? You just created your first thread. The AI response appears in the sidebar, and you can continue that conversation as deep as you want to go.
 
@@ -76,15 +77,16 @@ Here's where it gets interesting. You're not limited to one thread.
 
 Highlight another passage. Create another thread. Now you have two parallel conversations, each with its own context and history. Create a third. A fourth. Each thread remembers exactly what text spawned it and maintains its own conversation history.
 
-![Thread Panel - Deep dive into any topic](/guide-thread-panel.png)
+![Thread Panel - Deep dive into any topic](/guide-thread-panel.jpg)
 
 ### The Thread List
 
 Click the threads button in the header to see all your active discussions. They're sorted by most recent activity, so your current train of thought stays at the top.
 
-![Thread List - All your explorations at a glance](/guide-thread-list.png)
+![Thread List - All your explorations at a glance](/guide-thread-list.jpg)
 
 Each thread shows:
+
 - The text that started it (or "General Discussion" for document-wide questions)
 - A preview of the last message
 - How long ago it was active
@@ -101,7 +103,7 @@ What if you have a question about the whole document, not a specific section? Us
 
 As you read and discuss, you'll encounter passages worth remembering. Click **Save** in the tooltip to bookmark any highlight.
 
-![Quotes View - Your curated collection](/guide-quotes-view.png)
+![Quotes View - Your curated collection](/guide-quotes-view.jpg)
 
 Access your saved quotes anytime via the bookmark icon in the header. Each quote shows when you saved it, and you can delete ones you no longer need.
 
@@ -113,7 +115,7 @@ When you export your session, all your saved quotes come with it—perfect for r
 
 Threaded works with multiple AI providers. Open settings with `Cmd+K` (Mac) or `Ctrl+K` (Windows/Linux).
 
-![Settings - Choose your AI companion](/guide-settings.png)
+![Settings - Choose your AI companion](/guide-settings.jpg)
 
 ### Supported Providers
 
@@ -147,18 +149,20 @@ Your eyes will thank you. Toggle dark mode with the sun/moon icon in the header.
 ### Share Your Session
 
 Click the share icon to generate a link. Anyone with the link can view your document and threads (read-only). Perfect for:
+
 - Sharing annotated research with colleagues
 - Showing your analysis process
 - Collaborative document review
 
 ### Export Everything
 
-Menu → Export downloads a markdown file containing:
+The three-dot menu (⋮) → Export downloads a markdown file containing:
+
 - Your original document
 - All saved quotes
 - Every thread with full conversation history
 
-Take your work anywhere. Nothing is locked in.
+Take your work anywhere. Nothing is locked in. You can attach the exported file to any LLM to bootstrap a new conversation with all your context, quotes, and discussion history already in place.
 
 ---
 
@@ -166,14 +170,14 @@ Take your work anywhere. Nothing is locked in.
 
 ### Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Cmd/Ctrl + K` | Open Settings |
-| `Escape` | Close tooltip or sidebar |
+| Shortcut       | Action                   |
+| -------------- | ------------------------ |
+| `Cmd/Ctrl + K` | Open Settings            |
+| `Escape`       | Close tooltip or sidebar |
 
 ### Session History
 
-Hover over the left edge of the screen to reveal your session history. Previous documents you've explored are just a click away. Each session preserves all its threads and quotes.
+Click the history icon in the header to view your session history. Previous documents you've explored are just a click away. Each session preserves all its threads and quotes.
 
 ### The Meta Moment
 
@@ -210,4 +214,4 @@ Well, you know what to do. Just highlight it.
 
 ---
 
-*Built for people who think in branches, not lines.*
+_Built for humans who think in branches, not lines._

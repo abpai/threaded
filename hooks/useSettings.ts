@@ -1,12 +1,13 @@
-import { useState, useEffect, useCallback } from "react"
-import { AppSettings } from "../types"
+import { useState, useEffect, useCallback } from 'react'
+import { AppSettings } from '../types'
+import { DEFAULT_MODEL_ID } from '../lib/defaultModels'
 
-const STORAGE_KEY = "threaded-settings"
+const STORAGE_KEY = 'threaded-settings'
 
 const DEFAULT_SETTINGS: AppSettings = {
-  provider: "google",
-  apiKey: "",
-  modelId: "gemini-3-pro",
+  provider: 'google',
+  apiKey: '',
+  modelId: DEFAULT_MODEL_ID.google,
 }
 
 export interface UseSettingsResult {
@@ -27,7 +28,7 @@ export function useSettings(): UseSettingsResult {
       try {
         setSettings(JSON.parse(stored))
       } catch (e) {
-        console.error("Failed to parse settings", e)
+        console.error('Failed to parse settings', e)
       }
     }
   }, [])
