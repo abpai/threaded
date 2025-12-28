@@ -9,10 +9,10 @@ Threaded is a contextual AI reader - a Medium-style document interface where use
 ## Development Commands
 
 ```bash
-npm install        # Install dependencies
-npm run dev        # Start dev server on port 3000
-npm run build      # Production build with Vite
-npm run preview    # Preview production build
+pnpm install        # Install dependencies
+pnpm dev            # Start dev server on port 3000
+pnpm build          # Production build with Vite
+pnpm preview        # Preview production build
 ```
 
 ## Environment Setup
