@@ -1044,6 +1044,8 @@ const App: React.FC = () => {
               onOpenSettings={openSettings}
               onUpdateMessage={handleUpdateMessage}
               isReadOnly={sessionId ? !session.isOwner : false}
+              settings={settings}
+              onSettingsChange={saveSettings}
             />
           ) : (
             <ThreadList

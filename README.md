@@ -40,7 +40,7 @@ Threaded transforms documents into explorable workspaces where you can:
 - **Think in branches**: Highlight any text to spin off a focused discussion about that specific idea.
 - **Multitask your curiosity**: Keep multiple lines of inquiry open simultaneously, side-by-side with your reading.
 - **Bring your own AI**: Use Gemini, OpenAI, Claude, or local Ollama models.
-- **Stay private**: AI processing happens in your browser with your keys. Sessions are stored on the server to enable instant sharing, but are accessible *only* via their unguessable 21-character IDs. You can also self-host the entire platform on Cloudflare for complete control.
+- **Stay private**: AI processing happens in your browser with your keys. Sessions are stored on the server to enable instant sharing, but are accessible _only_ via their unguessable 21-character IDs. You can also self-host the entire platform on Cloudflare for complete control.
 
 ---
 
@@ -61,12 +61,12 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 Configure your provider in the Settings modal:
 
-| Provider          | Default Model                    | Notes                          |
-| ----------------- | -------------------------------- | ------------------------------ |
-| **Google Gemini** | gemini-3-flash-preview           | Default; best cost/perf        |
-| **OpenAI**        | gpt-5.2-chat-latest              | Full support for custom bases  |
-| **Anthropic**     | claude-opus-4-5-20251101         | High quality, browser-direct   |
-| **Ollama**        | qwen3:8b                         | Cloud in prod, local in dev    |
+| Provider          | Default Model            | Notes                         |
+| ----------------- | ------------------------ | ----------------------------- |
+| **Google Gemini** | gemini-3-flash-preview   | Default; best cost/perf       |
+| **OpenAI**        | gpt-5.2-chat-latest      | Full support for custom bases |
+| **Anthropic**     | claude-opus-4-5-20251101 | High quality, browser-direct  |
+| **Ollama**        | qwen3:8b                 | Cloud in prod, local in dev   |
 
 > API keys are stored only in your browser's `localStorage`.
 

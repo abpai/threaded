@@ -3,7 +3,7 @@ import process from 'node:process'
 import * as api from '../lib/api'
 import { generateThreadResponse, generateSessionSummary, ThreadMode } from '../services/aiService'
 import { getSummaryPrompt, getSystemPrompt } from '../services/prompts'
-import { AppSettings, Message, MessagePart, getTextFromParts } from '../types'
+import { AppSettings, Message, MessagePart } from '../types'
 
 type Mode = ThreadMode | 'summary'
 
@@ -175,8 +175,7 @@ interface SearchToolResult {
   message?: string
 }
 
-const getToolDisplayName = (toolName: string): string =>
-  toolDisplayNames[toolName] || toolName
+const getToolDisplayName = (toolName: string): string => toolDisplayNames[toolName] || toolName
 
 const getErrorMessage = (result: unknown): string | null => {
   if (!result || typeof result !== 'object') return null
@@ -211,8 +210,7 @@ const renderToolParts = (parts: MessagePart[]) => {
     if (part.type !== 'tool-invocation') continue
 
     const displayName = getToolDisplayName(part.toolName)
-    const stateIcon =
-      part.state === 'result' ? '✓' : part.state === 'call' ? '→' : '…'
+    const stateIcon = part.state === 'result' ? '✓' : part.state === 'call' ? '→' : '…'
 
     console.log(`\n━━━ ${displayName} ━━━`)
 
@@ -239,9 +237,7 @@ const renderToolParts = (parts: MessagePart[]) => {
         } else {
           // Fallback: show raw result
           const raw =
-            typeof part.result === 'string'
-              ? part.result
-              : JSON.stringify(part.result, null, 2)
+            typeof part.result === 'string' ? part.result : JSON.stringify(part.result, null, 2)
           console.log(`  Result: ${raw.slice(0, 500)}${raw.length > 500 ? '...' : ''}`)
         }
       }
