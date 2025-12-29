@@ -14,15 +14,23 @@ const PROVIDERS: { id: AiProvider; name: string }[] = [
   { id: 'google', name: 'Google Gemini' },
   { id: 'openai', name: 'OpenAI' },
   { id: 'anthropic', name: 'Anthropic Claude' },
-  { id: 'ollama', name: 'Ollama (Local)' },
+  { id: 'ollama', name: 'Ollama' },
 ]
 
 const API_KEY_LINKS: Record<AiProvider, { url: string; label: string } | null> = {
   google: { url: 'https://aistudio.google.com/apikey', label: 'Get API key' },
   openai: { url: 'https://platform.openai.com/api-keys', label: 'Get API key' },
   anthropic: { url: 'https://console.anthropic.com/settings/keys', label: 'Get API key' },
-  ollama: { url: 'https://ollama.readthedocs.io/en/api/', label: 'Ollama docs' },
+  ollama: { url: 'https://ollama.com/settings/keys', label: 'Get API key' },
 }
+
+// Helper to get default Ollama URL based on environment
+const getDefaultOllamaUrl = () =>
+  import.meta.env.DEV ? 'http://localhost:11434' : 'https://ollama.com'
+
+// Helper to detect if using Ollama Cloud
+const isOllamaCloud = (baseUrl: string | undefined) =>
+  baseUrl?.includes('ollama.com') || (!baseUrl && !import.meta.env.DEV)
 
 const API_KEYS_STORAGE_KEY = 'threaded-api-keys'
 
@@ -105,7 +113,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     const newProvider = e.target.value as AiProvider
     let newBaseUrl = ''
     if (newProvider === 'openai') newBaseUrl = 'https://api.openai.com/v1'
-    if (newProvider === 'ollama') newBaseUrl = 'http://localhost:11434'
+    if (newProvider === 'ollama') newBaseUrl = getDefaultOllamaUrl()
 
     // Save current API key before switching
     if (settings.apiKey) {
@@ -127,7 +135,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   }
 
   const fetchModels = async () => {
-    if (!settings.apiKey && settings.provider !== 'ollama') {
+    const ollamaNoKeyNeeded =
+      settings.provider === 'ollama' && !isOllamaCloud(settings.baseUrl)
+    if (!settings.apiKey && !ollamaNoKeyNeeded) {
       return
     }
 
@@ -168,8 +178,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           fetched = data.data.map(m => ({ id: m.id, created: m.created }))
         }
       } else if (settings.provider === 'ollama') {
-        const baseUrl = settings.baseUrl || 'http://localhost:11434'
-        const response = await fetch(`${baseUrl}/api/tags`, { signal: controller.signal })
+        const baseUrl = settings.baseUrl || getDefaultOllamaUrl()
+        const headers: Record<string, string> = {}
+        if (isOllamaCloud(settings.baseUrl) && settings.apiKey) {
+          headers['Authorization'] = `Bearer ${settings.apiKey}`
+        }
+        const response = await fetch(`${baseUrl}/api/tags`, {
+          signal: controller.signal,
+          headers: Object.keys(headers).length > 0 ? headers : undefined,
+        })
         if (!response.ok) throw new Error('Failed to fetch models')
         const data = await response.json()
         if (data.models) {
@@ -287,7 +304,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
               API Key{' '}
-              {settings.provider === 'ollama' && (
+              {settings.provider === 'ollama' && !isOllamaCloud(settings.baseUrl) && (
                 <span className="text-slate-400 dark:text-zinc-500 font-normal">(Optional)</span>
               )}
             </label>
@@ -297,7 +314,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               onChange={e => setSettings({ ...settings, apiKey: e.target.value })}
               placeholder={
                 settings.provider === 'ollama'
-                  ? 'Optional for local Ollama'
+                  ? isOllamaCloud(settings.baseUrl)
+                    ? 'Required for Ollama Cloud'
+                    : 'Optional for local Ollama'
                   : `Enter your ${PROVIDERS.find(p => p.id === settings.provider)?.name} API Key`
               }
               className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
@@ -319,7 +338,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               Keys are stored locally in your browser.
               {settings.provider === 'ollama' && (
                 <span className="block mt-1 text-amber-600 dark:text-amber-400">
-                  Enable CORS: OLLAMA_ORIGINS=* ollama serve
+                  {isOllamaCloud(settings.baseUrl)
+                    ? 'Cloud: Create API key at ollama.com/settings/keys'
+                    : 'Local: Enable CORS with OLLAMA_ORIGINS=* ollama serve'}
                 </span>
               )}
             </p>
@@ -345,10 +366,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <button
                 type="button"
                 onClick={() => fetchModels()}
-                disabled={(!settings.apiKey && settings.provider !== 'ollama') || isLoadingModels}
+                disabled={
+                  (!settings.apiKey &&
+                    !(settings.provider === 'ollama' && !isOllamaCloud(settings.baseUrl))) ||
+                  isLoadingModels
+                }
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-slate-400 transition-colors"
                 title={
-                  !settings.apiKey && settings.provider !== 'ollama'
+                  !settings.apiKey &&
+                  !(settings.provider === 'ollama' && !isOllamaCloud(settings.baseUrl))
                     ? 'Enter API key to fetch latest models'
                     : 'Refresh models from provider'
                 }
@@ -393,26 +419,29 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
           </div>
 
-          {/* Base URL (Optional for OpenAI, Required for Ollama) */}
+          {/* Base URL (Optional for OpenAI, configurable for Ollama) */}
           {(settings.provider === 'openai' || settings.provider === 'ollama') && (
             <div className="animate-in fade-in slide-in-from-top-2 duration-300">
               <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
                 Base URL{' '}
-                <span className="text-slate-400 dark:text-zinc-500 font-normal">
-                  {settings.provider === 'ollama' ? '(Required)' : '(Optional)'}
-                </span>
+                <span className="text-slate-400 dark:text-zinc-500 font-normal">(Optional)</span>
               </label>
               <input
                 type="text"
                 value={settings.baseUrl || ''}
                 onChange={e => setSettings({ ...settings, baseUrl: e.target.value })}
                 placeholder={
-                  settings.provider === 'ollama'
-                    ? 'http://localhost:11434'
-                    : 'https://api.openai.com/v1'
+                  settings.provider === 'ollama' ? getDefaultOllamaUrl() : 'https://api.openai.com/v1'
                 }
                 className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
               />
+              {settings.provider === 'ollama' && (
+                <p className="mt-1.5 text-xs text-slate-500 dark:text-zinc-400">
+                  {isOllamaCloud(settings.baseUrl)
+                    ? 'Using Ollama Cloud. Change to http://localhost:11434 for local.'
+                    : 'Using local Ollama. Change to https://ollama.com for cloud.'}
+                </p>
+              )}
             </div>
           )}
 

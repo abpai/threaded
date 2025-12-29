@@ -29,6 +29,15 @@ export class AIServiceError extends Error {
   }
 }
 
+/** Check if using local Ollama (no API key required) */
+function isOllamaLocal(settings: AppSettings): boolean {
+  return (
+    settings.provider === 'ollama' &&
+    !settings.baseUrl?.includes('ollama.com') &&
+    Boolean(settings.baseUrl || import.meta.env.DEV)
+  )
+}
+
 function getModel(settings: AppSettings) {
   const { provider, apiKey, baseUrl, modelId } = settings
 
@@ -49,8 +58,18 @@ function getModel(settings: AppSettings) {
     case 'google':
       return createGoogleGenerativeAI({ apiKey })(modelId)
 
-    case 'ollama':
-      return createOllama({ baseURL: baseUrl || 'http://localhost:11434' })(modelId)
+    case 'ollama': {
+      const defaultUrl =
+        typeof window !== 'undefined' && import.meta.env.DEV
+          ? 'http://localhost:11434'
+          : 'https://ollama.com'
+      const effectiveUrl = baseUrl || defaultUrl
+      const isCloud = effectiveUrl.includes('ollama.com')
+      return createOllama({
+        baseURL: effectiveUrl,
+        headers: isCloud && apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
+      })(modelId)
+    }
 
     default:
       throw new Error('Provider not supported')
@@ -218,7 +237,7 @@ export async function generateThreadResponse(
   mode: ThreadMode = 'discuss',
   abortSignal?: AbortSignal
 ): Promise<{ parts: MessagePart[]; text: string }> {
-  if (!settings.apiKey && settings.provider !== 'ollama') {
+  if (!settings.apiKey && !isOllamaLocal(settings)) {
     throw new AIServiceError({
       type: 'no_key',
       message: 'Please add your API key in Settings.',
@@ -279,7 +298,7 @@ export async function generateSessionSummary(
   document: string,
   settings: AppSettings
 ): Promise<string | null> {
-  if (!settings.apiKey && settings.provider !== 'ollama') {
+  if (!settings.apiKey && !isOllamaLocal(settings)) {
     return null
   }
 

@@ -66,9 +66,12 @@ Configure your provider in the Settings modal:
 | **Google Gemini** | gemini-3-flash-preview           | Default; best cost/perf        |
 | **OpenAI**        | gpt-5.2-chat-latest              | Full support for custom bases  |
 | **Anthropic**     | claude-opus-4-5-20251101         | High quality, browser-direct   |
-| **Ollama**        | qwen3:8b                         | Local inference on port 11434  |
+| **Ollama**        | qwen3:8b                         | Cloud in prod, local in dev    |
 
 > API keys are stored only in your browser's `localStorage`.
+
+> **Ollama:** Uses [Ollama Cloud](https://ollama.com/cloud) when deployed, `localhost:11434` in development.
+> Get your cloud API key at [ollama.com/settings/keys](https://ollama.com/settings/keys).
 
 ---
 
