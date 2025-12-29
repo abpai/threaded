@@ -1,7 +1,34 @@
-export interface Message {
-  role: "user" | "model"
+// Message part types matching AI SDK UIMessage format
+export interface TextPart {
+  type: 'text'
   text: string
+}
+
+export interface ToolInvocationPart {
+  type: 'tool-invocation'
+  toolInvocationId: string
+  toolName: string
+  args: Record<string, unknown>
+  state: 'partial-call' | 'call' | 'result'
+  result?: unknown
+}
+
+export type MessagePart = TextPart | ToolInvocationPart
+
+export interface Message {
+  id: string
+  role: 'user' | 'assistant' // Changed from "model" to match AI SDK
+  parts: MessagePart[]
+  text: string // Computed from text parts, kept for backwards compat
   timestamp: number
+}
+
+// Helper to compute text from parts
+export function getTextFromParts(parts: MessagePart[]): string {
+  return parts
+    .filter((p): p is TextPart => p.type === 'text')
+    .map(p => p.text)
+    .join('')
 }
 
 export interface Thread {
@@ -24,12 +51,12 @@ export interface TextSelection {
 }
 
 export enum ViewState {
-  START = "START",
-  READING = "READING",
-  QUOTES = "QUOTES",
+  START = 'START',
+  READING = 'READING',
+  QUOTES = 'QUOTES',
 }
 
-export type AiProvider = "google" | "openai" | "anthropic" | "ollama"
+export type AiProvider = 'google' | 'openai' | 'anthropic' | 'ollama'
 
 export interface AppSettings {
   provider: AiProvider
@@ -39,7 +66,7 @@ export interface AppSettings {
 }
 
 export interface SourceMetadata {
-  type: "file" | "url" | "paste"
+  type: 'file' | 'url' | 'paste'
   name?: string // filename or URL
 }
 

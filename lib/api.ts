@@ -1,6 +1,10 @@
+/**
+ * API messages use "model" for AI responses while the frontend uses "assistant".
+ * Translation happens in useSession.ts when loading/saving messages.
+ */
 export interface ApiMessage {
   id: string
-  role: "user" | "model"
+  role: 'user' | 'model'
   text: string
   timestamp: number
 }
@@ -40,6 +44,7 @@ export interface AddMessageResponse {
 export interface ForkSessionResponse {
   sessionId: string
   ownerToken: string
+  threadIdMap: Record<string, string>
 }
 
 export class ApiError extends Error {
@@ -48,7 +53,7 @@ export class ApiError extends Error {
     public status: number
   ) {
     super(message)
-    this.name = "ApiError"
+    this.name = 'ApiError'
   }
 }
 
@@ -74,6 +79,9 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
     }
   }
 
+  if (!lastError) {
+    throw new Error('Request failed after retries')
+  }
   throw lastError
 }
 
@@ -81,7 +89,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(path, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       ...options.headers,
     },
   })
@@ -89,7 +97,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const data = (await response.json()) as { error?: string } & T
 
   if (!response.ok) {
-    throw new ApiError(data.error || "Request failed", response.status)
+    throw new ApiError(data.error || 'Request failed', response.status)
   }
 
   return data as T
@@ -97,8 +105,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export async function createSession(markdownContent: string): Promise<CreateSessionResponse> {
   return withRetry(() =>
-    request<CreateSessionResponse>("/api/sessions", {
-      method: "POST",
+    request<CreateSessionResponse>('/api/sessions', {
+      method: 'POST',
       body: JSON.stringify({ markdownContent }),
     })
   )
@@ -111,8 +119,8 @@ export async function getSession(sessionId: string): Promise<ApiSession> {
 export async function deleteSession(sessionId: string, ownerToken: string): Promise<void> {
   await withRetry(() =>
     request<{ success: boolean }>(`/api/sessions/${sessionId}`, {
-      method: "DELETE",
-      headers: { "X-Owner-Token": ownerToken },
+      method: 'DELETE',
+      headers: { 'X-Owner-Token': ownerToken },
     })
   )
 }
@@ -125,9 +133,22 @@ export async function addThread(
 ): Promise<AddThreadResponse> {
   return withRetry(() =>
     request<AddThreadResponse>(`/api/sessions/${sessionId}/threads`, {
-      method: "POST",
-      headers: { "X-Owner-Token": ownerToken },
+      method: 'POST',
+      headers: { 'X-Owner-Token': ownerToken },
       body: JSON.stringify({ context, snippet }),
+    })
+  )
+}
+
+export async function deleteThread(
+  sessionId: string,
+  ownerToken: string,
+  threadId: string
+): Promise<void> {
+  await withRetry(() =>
+    request<{ success: boolean }>(`/api/sessions/${sessionId}/threads/${threadId}`, {
+      method: 'DELETE',
+      headers: { 'X-Owner-Token': ownerToken },
     })
   )
 }
@@ -136,22 +157,58 @@ export async function addMessage(
   sessionId: string,
   ownerToken: string,
   threadId: string,
-  role: "user" | "model",
+  role: 'user' | 'model',
   text: string
 ): Promise<AddMessageResponse> {
   return withRetry(() =>
     request<AddMessageResponse>(`/api/sessions/${sessionId}/threads/${threadId}/messages`, {
-      method: "POST",
-      headers: { "X-Owner-Token": ownerToken },
+      method: 'POST',
+      headers: { 'X-Owner-Token': ownerToken },
       body: JSON.stringify({ role, text }),
     })
+  )
+}
+
+export async function updateMessage(
+  sessionId: string,
+  ownerToken: string,
+  threadId: string,
+  messageId: string,
+  text: string
+): Promise<void> {
+  await withRetry(() =>
+    request<{ success: boolean }>(
+      `/api/sessions/${sessionId}/threads/${threadId}/messages/${messageId}`,
+      {
+        method: 'PUT',
+        headers: { 'X-Owner-Token': ownerToken },
+        body: JSON.stringify({ text }),
+      }
+    )
+  )
+}
+
+export async function truncateThread(
+  sessionId: string,
+  ownerToken: string,
+  threadId: string,
+  afterMessageId: string
+): Promise<void> {
+  await withRetry(() =>
+    request<{ success: boolean }>(
+      `/api/sessions/${sessionId}/threads/${threadId}/messages?after=${encodeURIComponent(afterMessageId)}`,
+      {
+        method: 'DELETE',
+        headers: { 'X-Owner-Token': ownerToken },
+      }
+    )
   )
 }
 
 export async function forkSession(sessionId: string): Promise<ForkSessionResponse> {
   return withRetry(() =>
     request<ForkSessionResponse>(`/api/sessions/${sessionId}/fork`, {
-      method: "POST",
+      method: 'POST',
     })
   )
 }

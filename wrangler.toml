@@ -4,7 +4,7 @@ compatibility_date = "2025-12-04"
 compatibility_flags = ["nodejs_compat"]
 
 [build]
-command = "npm run build"
+command = "pnpm build"
 
 [assets]
 directory = "dist"
@@ -18,5 +18,4 @@ not_found_handling = "single-page-application"
 [[d1_databases]]
 binding = "DB"
 database_name = "threaded-db"
-database_id = "6799fae2-cb90-4d83-a4ac-2728d02af970"
-
+database_id = "3dc10aab-a1a9-473a-9e23-1887640db256"

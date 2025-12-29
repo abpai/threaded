@@ -1,7 +1,7 @@
-import React from "react"
-import { Clock, Plus, Trash2, FileText, History } from "lucide-react"
-import { SessionMeta } from "../types"
-import { formatRelativeTime } from "../lib/formatTime"
+import React from 'react'
+import { Clock, Plus, Trash2, FileText, History } from 'lucide-react'
+import { SessionMeta } from '../types'
+import { formatRelativeTime } from '../lib/formatTime'
 
 interface HistoryPanelProps {
   sessions: SessionMeta[]
@@ -43,14 +43,14 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
       {/* Slide-out panel */}
       <div
         className={`fixed left-0 top-0 h-full z-50 transition-all duration-300 ease-in-out ${
-          isExpanded ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          isExpanded ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
         <div
           className={`h-full bg-white dark:bg-dark-surface border-r border-slate-200 dark:border-dark-border shadow-2xl transition-transform duration-300 ease-in-out ${
-            isExpanded ? "translate-x-0" : "-translate-x-full"
+            isExpanded ? 'translate-x-0' : '-translate-x-full'
           }`}
-          style={{ width: "280px" }}
+          style={{ width: '280px' }}
         >
           <div className="flex flex-col h-full">
             {/* Header */}
@@ -60,7 +60,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                 <div>
                   <h3 className="font-semibold text-slate-800 dark:text-zinc-100">History</h3>
                   <p className="text-xs text-slate-500 dark:text-zinc-400">
-                    {sessions.length} {sessions.length === 1 ? "session" : "sessions"}
+                    {sessions.length} {sessions.length === 1 ? 'session' : 'sessions'}
                   </p>
                 </div>
               </div>
@@ -95,8 +95,8 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                     }}
                     className={`w-full text-left p-3 rounded-lg border transition-all group relative ${
                       session.id === currentSessionId
-                        ? "bg-accent-glow dark:bg-accent-glow border-accent/30 dark:border-accent/30"
-                        : "bg-white dark:bg-dark-elevated border-slate-200 dark:border-dark-border hover:border-slate-300 dark:hover:border-zinc-600 hover:shadow-sm"
+                        ? 'bg-accent-glow dark:bg-accent-glow border-accent/30 dark:border-accent/30'
+                        : 'bg-white dark:bg-dark-elevated border-slate-200 dark:border-dark-border hover:border-slate-300 dark:hover:border-zinc-600 hover:shadow-sm'
                     }`}
                   >
                     {/* Delete button */}
@@ -119,7 +119,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
                     {/* Summary */}
                     <div className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-2 mt-1 leading-relaxed">
-                      {session.summary || "No summary available"}
+                      {session.summary || 'No summary available'}
                     </div>
 
                     {/* Meta */}

@@ -1,5 +1,4 @@
--- Session persistence schema for Threaded
--- Run with: npx wrangler d1 execute threaded-db --file=migrations/0001_schema.sql
+-- Threaded D1 Database Schema
 
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
@@ -29,7 +28,17 @@ CREATE TABLE IF NOT EXISTS messages (
   FOREIGN KEY (thread_id) REFERENCES threads(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS parse_cache (
+  content_hash TEXT PRIMARY KEY,
+  markdown TEXT NOT NULL,
+  source_type TEXT NOT NULL,
+  original_filename TEXT,
+  file_size INTEGER,
+  created_at INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_threads_session ON threads(session_id);
 CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages(thread_id);
 CREATE INDEX IF NOT EXISTS idx_threads_created ON threads(session_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(thread_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_parse_cache_created ON parse_cache(created_at);

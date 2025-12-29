@@ -14,7 +14,7 @@ not_found_handling = "single-page-application"
 [[d1_databases]]
 binding = "DB"
 database_name = "threaded-db"
-database_id = "YOUR_DATABASE_ID_HERE"
+database_id = "3dc10aab-a1a9-473a-9e23-1887640db256"
 
 # Secrets are loaded from .dev.vars file (not committed to git)
 # See .dev.vars.example for required variables

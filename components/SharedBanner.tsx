@@ -1,5 +1,5 @@
-import React from "react"
-import { X, GitFork } from "lucide-react"
+import React from 'react'
+import { X, GitFork } from 'lucide-react'
 
 interface SharedBannerProps {
   onDismiss: () => void

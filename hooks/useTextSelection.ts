@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, RefObject } from "react"
-import { TextSelection } from "../types"
+import { useState, useEffect, useCallback, RefObject } from 'react'
+import { TextSelection } from '../types'
 
 export interface UseTextSelectionResult {
   selection: TextSelection | null
@@ -7,7 +7,7 @@ export interface UseTextSelectionResult {
 }
 
 export function useTextSelection(
-  contentRef: RefObject<HTMLElement>,
+  contentRef: RefObject<HTMLElement | null>,
   isEnabled: boolean
 ): UseTextSelectionResult {
   const [selection, setSelection] = useState<TextSelection | null>(null)
@@ -39,12 +39,12 @@ export function useTextSelection(
       }
     }
 
-    document.addEventListener("mouseup", handleSelectionChange)
-    document.addEventListener("keyup", handleSelectionChange)
+    document.addEventListener('mouseup', handleSelectionChange)
+    document.addEventListener('keyup', handleSelectionChange)
 
     return () => {
-      document.removeEventListener("mouseup", handleSelectionChange)
-      document.removeEventListener("keyup", handleSelectionChange)
+      document.removeEventListener('mouseup', handleSelectionChange)
+      document.removeEventListener('keyup', handleSelectionChange)
     }
   }, [isEnabled, contentRef])
 

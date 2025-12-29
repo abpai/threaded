@@ -1,10 +1,10 @@
-import React, { useState } from "react"
-import { MessageSquarePlus, Copy, Sparkles, Check, Bookmark } from "lucide-react"
+import React, { useState } from 'react'
+import { MessageSquarePlus, Copy, Sparkles, Check, Bookmark } from 'lucide-react'
 
 interface TooltipProps {
   rect: DOMRect
   text: string
-  onAction: (action: "discuss" | "summarize") => void
+  onAction: (action: 'discuss' | 'summarize') => void
   onSaveQuote?: () => void
 }
 
@@ -28,7 +28,7 @@ const Tooltip: React.FC<TooltipProps> = ({ rect, text, onAction, onSaveQuote }) 
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch (err) {
-      console.error("Failed to copy:", err)
+      console.error('Failed to copy:', err)
     }
   }
 
@@ -47,7 +47,7 @@ const Tooltip: React.FC<TooltipProps> = ({ rect, text, onAction, onSaveQuote }) 
       onMouseDown={e => e.preventDefault()}
     >
       <button
-        onClick={() => onAction("discuss")}
+        onClick={() => onAction('discuss')}
         className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 dark:hover:bg-zinc-600 rounded-md transition-colors text-sm font-medium"
       >
         <MessageSquarePlus size={16} />
@@ -57,7 +57,7 @@ const Tooltip: React.FC<TooltipProps> = ({ rect, text, onAction, onSaveQuote }) 
       <div className="w-px h-4 bg-slate-700 dark:bg-zinc-600 mx-1"></div>
 
       <button
-        onClick={() => onAction("summarize")}
+        onClick={() => onAction('summarize')}
         className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 dark:hover:bg-zinc-600 rounded-md transition-colors text-sm font-medium"
       >
         <Sparkles size={16} className="text-accent" />
@@ -74,9 +74,9 @@ const Tooltip: React.FC<TooltipProps> = ({ rect, text, onAction, onSaveQuote }) 
         >
           <Bookmark
             size={16}
-            className={saved ? "text-amber-400 fill-amber-400" : "text-amber-400"}
+            className={saved ? 'text-amber-400 fill-amber-400' : 'text-amber-400'}
           />
-          <span>{saved ? "Saved" : "Save"}</span>
+          <span>{saved ? 'Saved' : 'Save'}</span>
         </button>
       )}
 

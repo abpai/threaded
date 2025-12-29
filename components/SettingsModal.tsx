@@ -1,6 +1,7 @@
-import { Check, ChevronDown, Loader2, RefreshCw, Save, X } from "lucide-react"
-import React, { useEffect, useRef, useState } from "react"
-import { AiProvider, AppSettings } from "../types"
+import { Check, ChevronDown, Loader2, RefreshCw, Save, X } from 'lucide-react'
+import React, { useEffect, useRef, useState } from 'react'
+import { DEFAULT_MODELS, DEFAULT_MODEL_ID } from '../lib/defaultModels'
+import { AiProvider, AppSettings } from '../types'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -10,32 +11,41 @@ interface SettingsModalProps {
 }
 
 const PROVIDERS: { id: AiProvider; name: string }[] = [
-  { id: "google", name: "Google Gemini" },
-  { id: "openai", name: "OpenAI" },
-  { id: "anthropic", name: "Anthropic Claude" },
-  { id: "ollama", name: "Ollama (Local)" },
+  { id: 'google', name: 'Google Gemini' },
+  { id: 'openai', name: 'OpenAI' },
+  { id: 'anthropic', name: 'Anthropic Claude' },
+  { id: 'ollama', name: 'Ollama (Local)' },
 ]
 
 const API_KEY_LINKS: Record<AiProvider, { url: string; label: string } | null> = {
-  google: { url: "https://aistudio.google.com/apikey", label: "Get API key" },
-  openai: { url: "https://platform.openai.com/api-keys", label: "Get API key" },
-  anthropic: { url: "https://console.anthropic.com/settings/keys", label: "Get API key" },
-  ollama: { url: "https://ollama.readthedocs.io/en/api/", label: "Ollama docs" },
+  google: { url: 'https://aistudio.google.com/apikey', label: 'Get API key' },
+  openai: { url: 'https://platform.openai.com/api-keys', label: 'Get API key' },
+  anthropic: { url: 'https://console.anthropic.com/settings/keys', label: 'Get API key' },
+  ollama: { url: 'https://ollama.readthedocs.io/en/api/', label: 'Ollama docs' },
 }
 
-const API_KEYS_STORAGE_KEY = "threaded-api-keys"
+const API_KEYS_STORAGE_KEY = 'threaded-api-keys'
 
 // API Response types for model listing
 interface GoogleModelsResponse {
-  models?: Array<{ name: string }>
+  models?: Array<{
+    name: string
+    supportedGenerationMethods?: string[]
+  }>
 }
 
 interface OpenAIModelsResponse {
-  data?: Array<{ id: string }>
+  data?: Array<{
+    id: string
+    created: number
+  }>
 }
 
 interface AnthropicModelsResponse {
-  data?: Array<{ id: string }>
+  data?: Array<{
+    id: string
+    created_at?: string
+  }>
 }
 
 function getStoredApiKeys(): Partial<Record<AiProvider, string>> {
@@ -65,14 +75,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [availableModels, setAvailableModels] = useState<string[]>([])
   const [isModelListOpen, setIsModelListOpen] = useState(false)
   const [isLoadingModels, setIsLoadingModels] = useState(false)
+  const [modelFetchError, setModelFetchError] = useState<string | null>(null)
 
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const fetchControllerRef = useRef<AbortController | null>(null)
 
   // Reset local state when modal opens
   useEffect(() => {
     if (isOpen) {
       setSettings(currentSettings)
-      setAvailableModels([])
+      setAvailableModels(DEFAULT_MODELS[currentSettings.provider])
     }
   }, [isOpen, currentSettings])
 
@@ -83,17 +95,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         setIsModelListOpen(false)
       }
     }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   if (!isOpen) return null
 
   const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newProvider = e.target.value as AiProvider
-    let newBaseUrl = ""
-    if (newProvider === "openai") newBaseUrl = "https://api.openai.com/v1"
-    if (newProvider === "ollama") newBaseUrl = "http://localhost:11434/v1"
+    let newBaseUrl = ''
+    if (newProvider === 'openai') newBaseUrl = 'https://api.openai.com/v1'
+    if (newProvider === 'ollama') newBaseUrl = 'http://localhost:11434'
 
     // Save current API key before switching
     if (settings.apiKey) {
@@ -102,86 +114,118 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
     // Load stored API key for new provider
     const storedKeys = getStoredApiKeys()
-    const storedApiKey = storedKeys[newProvider] || ""
+    const storedApiKey = storedKeys[newProvider] || ''
 
     setSettings(prev => ({
       ...prev,
       provider: newProvider,
-      modelId: "",
+      modelId: DEFAULT_MODEL_ID[newProvider],
       baseUrl: newBaseUrl,
       apiKey: storedApiKey,
     }))
-    setAvailableModels([])
+    setAvailableModels(DEFAULT_MODELS[newProvider])
   }
 
   const fetchModels = async () => {
-    if (!settings.apiKey && settings.provider !== "ollama") return
+    if (!settings.apiKey && settings.provider !== 'ollama') {
+      return
+    }
+
+    // Cancel any in-flight request
+    if (fetchControllerRef.current) {
+      fetchControllerRef.current.abort()
+    }
+    const controller = new AbortController()
+    fetchControllerRef.current = controller
 
     setIsLoadingModels(true)
-    let fetched: string[] = []
+    setModelFetchError(null)
+    let fetched: { id: string; created?: number; created_at?: string }[] = []
 
     try {
-      if (settings.provider === "google") {
+      if (settings.provider === 'google') {
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models?key=${settings.apiKey}`
+          `https://generativelanguage.googleapis.com/v1beta/models?key=${settings.apiKey}`,
+          { signal: controller.signal }
         )
+        if (!response.ok) throw new Error('Failed to fetch models')
         const data: GoogleModelsResponse = await response.json()
         if (data.models) {
-          fetched = data.models.map(m => m.name.replace("models/", ""))
+          fetched = data.models
+            .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
+            .map(m => ({ id: m.name.replace('models/', '') }))
         }
-      } else if (settings.provider === "openai" || settings.provider === "ollama") {
-        const baseUrl =
-          settings.baseUrl ||
-          (settings.provider === "openai"
-            ? "https://api.openai.com/v1"
-            : "http://localhost:11434/v1")
+      } else if (settings.provider === 'openai') {
+        const baseUrl = settings.baseUrl || 'https://api.openai.com/v1'
         const headers: Record<string, string> = {}
         if (settings.apiKey) {
-          headers["Authorization"] = `Bearer ${settings.apiKey}`
+          headers['Authorization'] = `Bearer ${settings.apiKey}`
         }
-
-        const response = await fetch(`${baseUrl}/models`, { headers })
+        const response = await fetch(`${baseUrl}/models`, { headers, signal: controller.signal })
+        if (!response.ok) throw new Error('Failed to fetch models')
         const data: OpenAIModelsResponse = await response.json()
         if (data.data) {
-          fetched = data.data.map(m => m.id)
+          fetched = data.data.map(m => ({ id: m.id, created: m.created }))
         }
-      } else if (settings.provider === "anthropic") {
-        const response = await fetch("https://api.anthropic.com/v1/models", {
+      } else if (settings.provider === 'ollama') {
+        const baseUrl = settings.baseUrl || 'http://localhost:11434'
+        const response = await fetch(`${baseUrl}/api/tags`, { signal: controller.signal })
+        if (!response.ok) throw new Error('Failed to fetch models')
+        const data = await response.json()
+        if (data.models) {
+          fetched = data.models.map((m: { name: string }) => ({ id: m.name }))
+        }
+      } else if (settings.provider === 'anthropic') {
+        const response = await fetch('https://api.anthropic.com/v1/models', {
           headers: {
-            "x-api-key": settings.apiKey,
-            "anthropic-version": "2023-06-01",
-            "anthropic-dangerous-direct-browser-access": "true",
+            'x-api-key': settings.apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
           },
+          signal: controller.signal,
         })
+        if (!response.ok) throw new Error('Failed to fetch models')
         const data: AnthropicModelsResponse = await response.json()
         if (data.data) {
-          fetched = data.data.map(m => m.id)
+          fetched = data.data.map(m => ({ id: m.id, created_at: m.created_at }))
         }
       }
     } catch (error) {
-      console.error("Error fetching models:", error)
+      if (error instanceof Error && error.name === 'AbortError') {
+        return // Request was cancelled, don't update state
+      }
+      console.error('Error fetching models:', error)
+      setModelFetchError(error instanceof Error ? error.message : 'Failed to fetch models')
+      setIsLoadingModels(false)
+      return
     }
 
     if (fetched.length > 0) {
-      // Filter models by provider-specific patterns
-      const filterPatterns: Record<AiProvider, RegExp | null> = {
-        google: /^(gemini|gemma)/i,
-        openai: /^gpt/i,
-        anthropic: /^claude/i,
-        ollama: null, // No filter for local models
+      // Filter and Sort
+      let filtered = fetched
+
+      if (settings.provider === 'google') {
+        filtered = fetched.filter(m => m.id.toLowerCase().includes('gemini'))
+      } else if (settings.provider === 'openai') {
+        filtered = fetched
+          .filter(m => m.id.toLowerCase().startsWith('gpt'))
+          .sort((a, b) => (b.created || 0) - (a.created || 0))
+      } else if (settings.provider === 'anthropic') {
+        filtered = fetched
+          .filter(m => m.id.toLowerCase().includes('claude'))
+          .sort((a, b) => {
+            if (!a.created_at) return 1
+            if (!b.created_at) return -1
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          })
       }
 
-      const pattern = filterPatterns[settings.provider]
-      const filtered = pattern ? fetched.filter(m => pattern.test(m)) : fetched
-      const uniqueModels = Array.from(new Set(filtered.length > 0 ? filtered : fetched))
+      const fetchedIds = Array.from(new Set(filtered.map(m => m.id)))
+      const defaults = DEFAULT_MODELS[settings.provider]
+      const merged = [...fetchedIds, ...defaults.filter(d => !fetchedIds.includes(d))]
 
-      setAvailableModels(uniqueModels)
+      setAvailableModels(merged)
       setIsModelListOpen(true)
-
-      // Auto-select first model from fetched list
-      if (uniqueModels.length > 0) {
-        setSettings(prev => ({ ...prev, modelId: uniqueModels[0] }))
-      }
     }
 
     setIsLoadingModels(false)
@@ -242,8 +286,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* API Key */}
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
-              API Key{" "}
-              {settings.provider === "ollama" && (
+              API Key{' '}
+              {settings.provider === 'ollama' && (
                 <span className="text-slate-400 dark:text-zinc-500 font-normal">(Optional)</span>
               )}
             </label>
@@ -252,8 +296,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               value={settings.apiKey}
               onChange={e => setSettings({ ...settings, apiKey: e.target.value })}
               placeholder={
-                settings.provider === "ollama"
-                  ? "Optional for local Ollama"
+                settings.provider === 'ollama'
+                  ? 'Optional for local Ollama'
                   : `Enter your ${PROVIDERS.find(p => p.id === settings.provider)?.name} API Key`
               }
               className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
@@ -273,7 +317,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </>
               )}
               Keys are stored locally in your browser.
-              {settings.provider === "ollama" && (
+              {settings.provider === 'ollama' && (
                 <span className="block mt-1 text-amber-600 dark:text-amber-400">
                   Enable CORS: OLLAMA_ORIGINS=* ollama serve
                 </span>
@@ -295,15 +339,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   setIsModelListOpen(true)
                 }}
                 onFocus={() => setIsModelListOpen(true)}
-                placeholder="e.g. gpt-4o, gemini-1.5-flash, llama3.2"
+                placeholder="e.g. gpt-5.2-chat-latest, gemini-3-flash-preview, claude-opus-4-5-20251101"
                 className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
               />
               <button
                 type="button"
-                onClick={fetchModels}
-                disabled={(!settings.apiKey && settings.provider !== "ollama") || isLoadingModels}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-accent disabled:opacity-50 disabled:hover:text-slate-400 transition-colors"
-                title="Fetch models from provider"
+                onClick={() => fetchModels()}
+                disabled={(!settings.apiKey && settings.provider !== 'ollama') || isLoadingModels}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-slate-400 transition-colors"
+                title={
+                  !settings.apiKey && settings.provider !== 'ollama'
+                    ? 'Enter API key to fetch latest models'
+                    : 'Refresh models from provider'
+                }
               >
                 {isLoadingModels ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -338,25 +386,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 )}
               </div>
             )}
+
+            {/* Model fetch error */}
+            {modelFetchError && (
+              <p className="mt-1.5 text-xs text-red-500 dark:text-red-400">{modelFetchError}</p>
+            )}
           </div>
 
           {/* Base URL (Optional for OpenAI, Required for Ollama) */}
-          {(settings.provider === "openai" || settings.provider === "ollama") && (
-            <div>
+          {(settings.provider === 'openai' || settings.provider === 'ollama') && (
+            <div className="animate-in fade-in slide-in-from-top-2 duration-300">
               <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
-                Base URL{" "}
+                Base URL{' '}
                 <span className="text-slate-400 dark:text-zinc-500 font-normal">
-                  {settings.provider === "ollama" ? "(Required)" : "(Optional)"}
+                  {settings.provider === 'ollama' ? '(Required)' : '(Optional)'}
                 </span>
               </label>
               <input
                 type="text"
-                value={settings.baseUrl || ""}
+                value={settings.baseUrl || ''}
                 onChange={e => setSettings({ ...settings, baseUrl: e.target.value })}
                 placeholder={
-                  settings.provider === "ollama"
-                    ? "http://localhost:11434/v1"
-                    : "https://api.openai.com/v1"
+                  settings.provider === 'ollama'
+                    ? 'http://localhost:11434'
+                    : 'https://api.openai.com/v1'
                 }
                 className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
               />

@@ -1,0 +1,7 @@
+packages:
+  - "."
+  - "cli"
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - workerd

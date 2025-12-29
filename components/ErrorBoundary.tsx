@@ -1,5 +1,5 @@
-import React, { Component, ReactNode } from "react"
-import { AlertCircle, RefreshCw } from "lucide-react"
+import React, { Component, ReactNode } from 'react'
+import { AlertCircle, RefreshCw } from 'lucide-react'
 
 interface Props {
   children: ReactNode
@@ -22,7 +22,7 @@ class ErrorBoundary extends Component<Props, State> {
 
   handleReset = () => {
     this.setState({ hasError: false, error: null })
-    window.location.href = "/"
+    window.location.href = '/'
   }
 
   render() {
@@ -37,7 +37,7 @@ class ErrorBoundary extends Component<Props, State> {
               Something went wrong
             </h1>
             <p className="text-slate-600 dark:text-neutral-400 mb-6">
-              {this.state.error?.message || "An unexpected error occurred"}
+              {this.state.error?.message || 'An unexpected error occurred'}
             </p>
             <button
               onClick={this.handleReset}

@@ -8,11 +8,11 @@ import {
   Settings as SettingsIcon,
   Sun,
   Upload,
-} from "lucide-react"
-import React, { FormEvent, useRef, useState } from "react"
-import { parseFile, parseUrl } from "../services/contentParser"
-import { AppSettings, SourceMetadata } from "../types"
-import SettingsModal from "./SettingsModal"
+} from 'lucide-react'
+import React, { FormEvent, useRef, useState } from 'react'
+import { parseFile, parseUrl } from '../services/contentParser'
+import { AppSettings, SourceMetadata } from '../types'
+import SettingsModal from './SettingsModal'
 
 interface StartViewProps {
   onContentReady: (content: string, source?: SourceMetadata) => void
@@ -23,7 +23,7 @@ interface StartViewProps {
   onToggleHistory?: () => void
 }
 
-type InputMode = "upload" | "link" | "paste"
+type InputMode = 'upload' | 'link' | 'paste'
 
 const StartView: React.FC<StartViewProps> = ({
   onContentReady,
@@ -33,12 +33,12 @@ const StartView: React.FC<StartViewProps> = ({
   onToggleDarkMode,
   onToggleHistory,
 }) => {
-  const [inputMode, setInputMode] = useState<InputMode>("upload")
-  const [pasteContent, setPasteContent] = useState("")
-  const [urlInput, setUrlInput] = useState("")
+  const [inputMode, setInputMode] = useState<InputMode>('upload')
+  const [pasteContent, setPasteContent] = useState('')
+  const [urlInput, setUrlInput] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [processingStatus, setProcessingStatus] = useState("")
+  const [processingStatus, setProcessingStatus] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
@@ -52,9 +52,9 @@ const StartView: React.FC<StartViewProps> = ({
 
     try {
       const result = await parseFile(file)
-      onContentReady(result.markdown, { type: "file", name: file.name })
+      onContentReady(result.markdown, { type: 'file', name: file.name })
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to process file")
+      setError(e instanceof Error ? e.message : 'Failed to process file')
       setIsProcessing(false)
     }
   }
@@ -65,13 +65,13 @@ const StartView: React.FC<StartViewProps> = ({
 
     setError(null)
     setIsProcessing(true)
-    setProcessingStatus("Fetching content...")
+    setProcessingStatus('Fetching content...')
 
     try {
       const result = await parseUrl(urlInput)
-      onContentReady(result.markdown, { type: "url", name: urlInput })
+      onContentReady(result.markdown, { type: 'url', name: urlInput })
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to fetch URL")
+      setError(e instanceof Error ? e.message : 'Failed to fetch URL')
       setIsProcessing(false)
     }
   }
@@ -80,7 +80,7 @@ const StartView: React.FC<StartViewProps> = ({
     e.preventDefault()
     e.stopPropagation()
     dragCounterRef.current++
-    if (e.dataTransfer?.types.includes("Files")) {
+    if (e.dataTransfer?.types.includes('Files')) {
       setIsDragging(true)
     }
   }
@@ -116,17 +116,17 @@ const StartView: React.FC<StartViewProps> = ({
     if (file) {
       processFile(file)
     }
-    e.target.value = ""
+    e.target.value = ''
   }
 
   const handleStart = () => {
     if (pasteContent.trim()) {
-      onContentReady(pasteContent, { type: "paste" })
+      onContentReady(pasteContent, { type: 'paste' })
     }
   }
 
   const handleSubmit = () => {
-    if (inputMode === "paste" && pasteContent.trim()) {
+    if (inputMode === 'paste' && pasteContent.trim()) {
       handleStart()
     }
   }
@@ -223,33 +223,33 @@ const StartView: React.FC<StartViewProps> = ({
           {/* Tabs */}
           <div className="flex rounded-full bg-slate-100 dark:bg-dark-elevated p-1 mb-6">
             <button
-              onClick={() => setInputMode("upload")}
+              onClick={() => setInputMode('upload')}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-full text-sm font-medium transition-all ${
-                inputMode === "upload"
-                  ? "bg-white dark:bg-zinc-600 text-slate-900 dark:text-zinc-100 shadow-sm"
-                  : "text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200"
+                inputMode === 'upload'
+                  ? 'bg-white dark:bg-zinc-600 text-slate-900 dark:text-zinc-100 shadow-sm'
+                  : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'
               }`}
             >
               <Upload size={16} />
               Upload
             </button>
             <button
-              onClick={() => setInputMode("link")}
+              onClick={() => setInputMode('link')}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-full text-sm font-medium transition-all ${
-                inputMode === "link"
-                  ? "bg-white dark:bg-zinc-600 text-slate-900 dark:text-zinc-100 shadow-sm"
-                  : "text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200"
+                inputMode === 'link'
+                  ? 'bg-white dark:bg-zinc-600 text-slate-900 dark:text-zinc-100 shadow-sm'
+                  : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'
               }`}
             >
               <Link size={16} />
               Link
             </button>
             <button
-              onClick={() => setInputMode("paste")}
+              onClick={() => setInputMode('paste')}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-full text-sm font-medium transition-all ${
-                inputMode === "paste"
-                  ? "bg-white dark:bg-zinc-600 text-slate-900 dark:text-zinc-100 shadow-sm"
-                  : "text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200"
+                inputMode === 'paste'
+                  ? 'bg-white dark:bg-zinc-600 text-slate-900 dark:text-zinc-100 shadow-sm'
+                  : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'
               }`}
             >
               <FileText size={16} />
@@ -268,9 +268,9 @@ const StartView: React.FC<StartViewProps> = ({
             {/* Upload Panel */}
             <div
               className={`absolute inset-0 transition-all duration-200 ease-out ${
-                inputMode === "upload"
-                  ? "opacity-100 translate-y-0 pointer-events-auto"
-                  : "opacity-0 translate-y-2 pointer-events-none"
+                inputMode === 'upload'
+                  ? 'opacity-100 translate-y-0 pointer-events-auto'
+                  : 'opacity-0 translate-y-2 pointer-events-none'
               }`}
             >
               <div className="border-2 border-dashed border-slate-200 dark:border-dark-border rounded-xl p-10 text-center hover:border-emerald-300 dark:hover:border-accent-muted transition-colors h-full flex flex-col items-center justify-center">
@@ -283,7 +283,7 @@ const StartView: React.FC<StartViewProps> = ({
                     className="text-emerald-600 dark:text-accent hover:underline font-medium"
                   >
                     Click to upload
-                  </button>{" "}
+                  </button>{' '}
                   or drag and drop
                 </p>
                 <p className="text-sm text-slate-400 dark:text-zinc-500">
@@ -302,9 +302,9 @@ const StartView: React.FC<StartViewProps> = ({
             {/* Link Panel */}
             <div
               className={`absolute inset-0 transition-all duration-200 ease-out ${
-                inputMode === "link"
-                  ? "opacity-100 translate-y-0 pointer-events-auto"
-                  : "opacity-0 translate-y-2 pointer-events-none"
+                inputMode === 'link'
+                  ? 'opacity-100 translate-y-0 pointer-events-auto'
+                  : 'opacity-0 translate-y-2 pointer-events-none'
               }`}
             >
               <form
@@ -335,9 +335,9 @@ const StartView: React.FC<StartViewProps> = ({
             {/* Paste Panel */}
             <div
               className={`absolute inset-0 transition-all duration-200 ease-out ${
-                inputMode === "paste"
-                  ? "opacity-100 translate-y-0 pointer-events-auto"
-                  : "opacity-0 translate-y-2 pointer-events-none"
+                inputMode === 'paste'
+                  ? 'opacity-100 translate-y-0 pointer-events-auto'
+                  : 'opacity-0 translate-y-2 pointer-events-none'
               }`}
             >
               <div className="space-y-4">

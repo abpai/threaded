@@ -1,9 +1,9 @@
-import React from "react"
-import ReactMarkdown from "react-markdown"
-import remarkMath from "remark-math"
-import remarkGfm from "remark-gfm"
-import rehypeKatex from "rehype-katex"
-import rehypeHighlight from "rehype-highlight"
+import React from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkMath from 'remark-math'
+import remarkGfm from 'remark-gfm'
+import rehypeKatex from 'rehype-katex'
+import rehypeHighlight from 'rehype-highlight'
 
 interface MarkdownRendererProps {
   content: string
@@ -12,9 +12,9 @@ interface MarkdownRendererProps {
 
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className }) => {
   return (
-    <div className={`markdown-content ${className || ""}`}>
+    <div className={`markdown-content ${className || ''}`}>
       <ReactMarkdown
-        remarkPlugins={[remarkMath, remarkGfm]}
+        remarkPlugins={[[remarkMath, { singleDollarTextMath: false }], remarkGfm]}
         rehypePlugins={[rehypeKatex, rehypeHighlight]}
       >
         {content}
@@ -23,4 +23,4 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
   )
 }
 
-export default MarkdownRenderer
+export default React.memo(MarkdownRenderer)

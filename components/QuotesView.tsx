@@ -1,7 +1,7 @@
-import React from "react"
-import { ArrowLeft, X, BookOpen } from "lucide-react"
-import { Quote } from "../types"
-import { formatRelativeTime } from "../lib/formatTime"
+import React from 'react'
+import { ArrowLeft, X, BookOpen } from 'lucide-react'
+import { Quote } from '../types'
+import { formatRelativeTime } from '../lib/formatTime'
 
 interface QuotesViewProps {
   quotes: Quote[]

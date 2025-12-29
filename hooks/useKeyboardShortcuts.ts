@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect } from 'react'
 
 export interface ShortcutHandlers {
   onEscape?: () => void
@@ -8,19 +8,19 @@ export interface ShortcutHandlers {
 export function useKeyboardShortcuts(handlers: ShortcutHandlers): void {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && handlers.onEscape) {
+      if (e.key === 'Escape' && handlers.onEscape) {
         handlers.onEscape()
         return
       }
 
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
         handlers.onOpenSettings?.()
         return
       }
     }
 
-    document.addEventListener("keydown", handleKeyDown)
-    return () => document.removeEventListener("keydown", handleKeyDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
   }, [handlers])
 }

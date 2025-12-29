@@ -1,6 +1,7 @@
-const DATALAB_API_URL = "https://www.datalab.to/api/v1/marker"
+const DATALAB_API_URL = 'https://www.datalab.to/api/v1/marker'
 const MAX_POLL_ATTEMPTS = 60
 const POLL_INTERVAL_MS = 2000
+const MAX_POLL_MS = 25000
 
 interface DatalabSubmitResponse {
   success: boolean
@@ -11,15 +12,19 @@ interface DatalabSubmitResponse {
 
 interface DatalabResultResponse {
   success: boolean
-  status: "pending" | "complete" | "error"
+  status: 'pending' | 'complete' | 'error'
   markdown?: string
   error?: string
 }
 
 async function pollForResult(checkUrl: string, apiKey: string): Promise<string> {
+  const start = Date.now()
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+    if (Date.now() - start > MAX_POLL_MS) {
+      throw new Error('Parsing timed out. Please try again shortly.')
+    }
     const response = await fetch(checkUrl, {
-      headers: { "X-API-Key": apiKey },
+      headers: { 'X-API-Key': apiKey },
     })
 
     if (!response.ok) {
@@ -28,21 +33,21 @@ async function pollForResult(checkUrl: string, apiKey: string): Promise<string> 
 
     const result = (await response.json()) as DatalabResultResponse
 
-    if (result.status === "complete") {
+    if (result.status === 'complete') {
       if (!result.markdown) {
-        throw new Error("Parsing completed but no markdown returned")
+        throw new Error('Parsing completed but no markdown returned')
       }
       return result.markdown
     }
 
-    if (result.status === "error") {
-      throw new Error(result.error || "Parsing failed")
+    if (result.status === 'error') {
+      throw new Error(result.error || 'Parsing failed')
     }
 
     await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
   }
 
-  throw new Error("Parsing timed out")
+  throw new Error('Parsing timed out')
 }
 
 export async function parseWithDatalab(
@@ -51,15 +56,15 @@ export async function parseWithDatalab(
   apiKey: string
 ): Promise<string> {
   const form = new FormData()
-  form.append("file", file, filename)
-  form.append("output_format", "markdown")
-  form.append("skip_cache", "false")
-  form.append("force_ocr", "true")
-  form.append("use_llm", "true")
+  form.append('file', file, filename)
+  form.append('output_format', 'markdown')
+  form.append('skip_cache', 'false')
+  form.append('force_ocr', 'true')
+  form.append('use_llm', 'true')
 
   const response = await fetch(DATALAB_API_URL, {
-    method: "POST",
-    headers: { "X-API-Key": apiKey },
+    method: 'POST',
+    headers: { 'X-API-Key': apiKey },
     body: form,
   })
 
@@ -71,11 +76,11 @@ export async function parseWithDatalab(
   const result = (await response.json()) as DatalabSubmitResponse
 
   if (!result.success) {
-    throw new Error(result.error || "Failed to submit document for parsing")
+    throw new Error(result.error || 'Failed to submit document for parsing')
   }
 
   if (!result.request_check_url) {
-    throw new Error("No check URL returned from Datalab")
+    throw new Error('No check URL returned from Datalab')
   }
 
   return pollForResult(result.request_check_url, apiKey)

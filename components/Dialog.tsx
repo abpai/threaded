@@ -1,9 +1,9 @@
-import React from "react"
-import { AlertCircle, CheckCircle, X } from "lucide-react"
+import { AlertCircle, CheckCircle, X } from 'lucide-react'
+import React from 'react'
 
 export interface DialogState {
   isOpen: boolean
-  type: "alert" | "confirm" | "success" | "error"
+  type: 'alert' | 'confirm' | 'success' | 'error'
   title: string
   message: string
   onConfirm?: () => void
@@ -54,7 +54,7 @@ const Dialog: React.FC<DialogProps> = ({ state, onClose }) => {
         </div>
 
         <div className="flex justify-end gap-2 p-4 border-t border-slate-100 dark:border-neutral-800 bg-slate-50 dark:bg-neutral-800/50">
-          {state.type === "confirm" ? (
+          {state.type === 'confirm' ? (
             <>
               <button
                 onClick={onClose}
