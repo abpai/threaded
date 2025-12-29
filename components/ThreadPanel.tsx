@@ -14,7 +14,8 @@ import {
   X,
 } from 'lucide-react'
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { MessagePart, Thread } from '../types'
+import { AppSettings, MessagePart, Thread } from '../types'
+import ProviderModelSelector from './ProviderModelSelector'
 import ToolInvocationRenderer from './ToolInvocationRenderer'
 
 const MarkdownRenderer = lazy(() => import('./MarkdownRenderer'))
@@ -30,6 +31,8 @@ interface ThreadPanelProps {
   onOpenSettings?: () => void
   onUpdateMessage?: (messageId: string, newText: string) => void
   isReadOnly?: boolean
+  settings: AppSettings
+  onSettingsChange: (settings: AppSettings) => void
 }
 
 const isErrorMessage = (text: string): boolean => {
@@ -97,6 +100,8 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
   onOpenSettings,
   onUpdateMessage,
   isReadOnly = false,
+  settings,
+  onSettingsChange,
 }) => {
   const [inputValue, setInputValue] = useState('')
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
@@ -467,6 +472,7 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
 
       {/* Input Area */}
       <div className="p-4 border-t border-slate-100 dark:border-dark-border bg-white dark:bg-dark-surface">
+        <ProviderModelSelector settings={settings} onSettingsChange={onSettingsChange} />
         <form onSubmit={handleSubmit} className="relative">
           <input
             ref={inputRef}

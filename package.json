@@ -21,6 +21,7 @@
     "@ai-sdk/anthropic": "^3.0.1",
     "@ai-sdk/google": "^3.0.1",
     "@ai-sdk/openai": "^3.0.1",
+    "@icons-pack/react-simple-icons": "^13.8.0",
     "ai": "^6.0.3",
     "ai-sdk-ollama": "^3.0.0",
     "dedent": "^1.7.0",
