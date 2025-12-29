@@ -1,5 +1,5 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="public/guide-start-view.png" />
+<img width="100%" height="auto" alt="threaded-banner" src="public/guide-start-view.jpg" />
 
 # Threaded
 
@@ -84,7 +84,7 @@ Configure your provider in the Settings modal:
 Open local files directly from your terminal:
 
 ```bash
-bun install -g @andypai/threaded
+pnpm install -g @andypai/threaded
 threaded ./document.pdf
 ```
 

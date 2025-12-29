@@ -1,6 +1,6 @@
 # CLI Architecture
 
-Threaded includes a Bun-based CLI tool for opening local files directly in the web application. It handles file parsing, session creation, and browser opening.
+Threaded includes a Node.js-based CLI tool for opening local files directly in the web application. It handles file parsing, session creation, and browser opening.
 
 ## Overview
 
@@ -12,7 +12,7 @@ The CLI (`cli/src/index.ts`) is a command-line utility that:
 
 ## Technology Stack
 
-- **Runtime**: Bun (for fast file I/O and native APIs)
+- **Runtime**: Node.js (>=18.0.0)
 - **CLI Framework**: Commander.js (v12.0.0)
 - **Browser Opening**: `open` package (v10.0.0, cross-platform)
 
@@ -43,7 +43,7 @@ Files that can be read directly as text (no parsing needed):
 - `.markdown` - Markdown
 
 **Process**:
-1. Read file via `Bun.file(filepath).text()`
+1. Read file via `readFileSync(filepath, 'utf-8')`
 2. Validate non-empty
 3. Use content as-is (no API call)
 
@@ -61,7 +61,7 @@ Files that require parsing via Worker API:
 - `.xml` - XML files
 
 **Process**:
-1. Read file via `Bun.file(filepath)`
+1. Read file via `readFileSync(filepath)` (binary)
 2. Create FormData with file
 3. POST to `/api/parse` endpoint
 4. Receive markdown from API
@@ -83,7 +83,7 @@ async function getMarkdownForFile(apiBase: string, filepath: string): Promise<st
 
 **Process**:
 1. Resolves absolute path via `path.resolve(filepath)`
-2. Checks file exists via `Bun.file(absPath).exists()`
+2. Checks file exists via `existsSync(absPath)`
 3. Throws error if file not found
 4. Determines file extension via `path.extname(absPath).toLowerCase()`
 5. Routes to appropriate handler:
@@ -265,16 +265,17 @@ function joinUrl(base: string, subpath: string): string
 cd cli && npm run build
 ```
 
-**Note**: CLI uses Bun runtime, so no build step needed. The `build` script is a placeholder.
+**Note**: CLI uses Node.js runtime with TypeScript compilation. Build step required before use.
 
 **Direct Execution**:
-- Can run directly: `bun cli/src/index.ts <filepath>`
-- Shebang `#!/usr/bin/env bun` allows direct execution
+- Can run directly: `tsx cli/src/index.ts <filepath>` (development)
+- Built version: `node cli/dist/index.js <filepath>`
+- Shebang `#!/usr/bin/env node` allows direct execution after build
 
 ### Package Configuration
 **`cli/package.json`**:
-- `bin.threaded`: Points to `src/index.ts`
-- `engines.bun`: Requires Bun >= 1.1.0
+- `bin.threaded`: Points to `dist/index.js`
+- `engines.node`: Requires Node.js >= 18.0.0
 - `type`: `"module"` (ESM)
 
 ### Installation
@@ -285,7 +286,7 @@ npm install -g @andypai/threaded
 
 **Local Usage**:
 ```bash
-bun cli/src/index.ts document.pdf
+tsx cli/src/index.ts document.pdf
 ```
 
 **Via pnpm workspace**:
@@ -337,11 +338,11 @@ threaded document.pdf
 
 ## Design Decisions
 
-### Why Bun?
-- **Fast file I/O**: Native file reading, no Node.js overhead
-- **TypeScript support**: Native TypeScript execution, no compilation needed
-- **Small binary**: Fast startup time
-- **Modern APIs**: Built-in fetch, FormData, etc.
+### Why Node.js?
+- **Cross-platform**: Works on macOS, Linux, and Windows
+- **Standard APIs**: Uses Node.js built-in modules (`fs`, `path`)
+- **TypeScript support**: Uses `tsx` for development, compiled for production
+- **Modern APIs**: Built-in fetch, FormData, etc. (Node.js 18+)
 
 ### Why Not Use Owner Token?
 - CLI doesn't need to manage sessions
@@ -381,7 +382,7 @@ threaded document.pdf
 - No progress indicators for large files
 
 ### Platform Support
-- Requires Bun runtime
+- Requires Node.js >= 18.0.0
 - Browser opening via `open` package (cross-platform)
 - File path handling may differ on Windows
 

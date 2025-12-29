@@ -4,8 +4,7 @@ import prettierPlugin from 'eslint-plugin-prettier'
 import tsParser from '@typescript-eslint/parser'
 import tsPlugin from '@typescript-eslint/eslint-plugin'
 
-const bunGlobals = {
-  Bun: 'readonly',
+const nodeGlobals = {
   fetch: 'readonly',
   Request: 'readonly',
   Response: 'readonly',
@@ -32,7 +31,7 @@ export default [
       ecmaVersion: 'latest',
       sourceType: 'module',
       parser: tsParser,
-      globals: bunGlobals,
+      globals: nodeGlobals,
     },
     plugins: {
       '@typescript-eslint': tsPlugin,
@@ -64,7 +63,7 @@ export default [
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
-      globals: bunGlobals,
+      globals: nodeGlobals,
     },
     plugins: {
       prettier: prettierPlugin,

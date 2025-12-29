@@ -1,6 +1,6 @@
 # Threaded Architecture
 
-Threaded is a contextual AI reader built as a full-stack application with three main components: a React SPA (UI), a Cloudflare Worker backend, and a Bun-based CLI tool.
+Threaded is a contextual AI reader built as a full-stack application with three main components: a React SPA (UI), a Cloudflare Worker backend, and a Node.js-based CLI tool.
 
 ## Overview
 
@@ -56,7 +56,7 @@ Threaded enables deep document exploration through contextual conversations anch
                           │
                           │ REST API
 ┌─────────────────────────┼─────────────────────────────────────┐
-│                    CLI Tool (Bun)                             │
+│                 CLI Tool (Node.js)                             │
 │  ┌────────────────────────────────────────────────────────┐    │
 │  │  1. Read File                                         │    │
 │  │  2. Parse (if needed)                                │    │
@@ -104,7 +104,7 @@ Threaded enables deep document exploration through contextual conversations anch
 
 **Documentation**: [Worker Architecture](./WORKER.md)
 
-### 3. CLI (Bun Tool)
+### 3. CLI (Node.js Tool)
 
 **Location**: `cli/` directory
 
@@ -116,7 +116,7 @@ Threaded enables deep document exploration through contextual conversations anch
 - Session creation
 - Browser opening
 
-**Technology**: Bun, Commander.js, TypeScript
+**Technology**: Node.js, Commander.js, TypeScript
 
 **Documentation**: [CLI Architecture](./CLI.md)
 
@@ -176,9 +176,10 @@ User Opens Shared URL → No Owner Token → Try to Edit
 
 ### CLI
 
-- **Bun** - Runtime
+- **Node.js** - Runtime (>=18.0.0)
 - **Commander.js** - CLI framework
 - **open** - Cross-platform browser opening
+- **tsx** - TypeScript execution (development)
 
 ## Key Design Patterns
 
@@ -326,7 +327,7 @@ wrangler d1 execute threaded-db --file=migrations/0002_parse_cache.sql
 
 - **[UI Architecture](./UI.md)** - React SPA structure, hooks, components, state management
 - **[Worker Architecture](./worker-architecture.md)** - Cloudflare Worker routes, authentication, database
-- **[CLI Architecture](./cli-architecture.md)** - Bun CLI tool for file opening
+- **[CLI Architecture](./CLI.md)** - Node.js CLI tool for file opening
 
 ## Project Structure
 
