@@ -808,7 +808,7 @@ const App: React.FC = () => {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left Pane: Document View Container */}
-        <div
+        <main
           className={`flex-1 h-full relative flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-1/2' : 'w-full'}`}
           onMouseDown={handleDocumentMouseDown}
         >
@@ -970,7 +970,7 @@ const App: React.FC = () => {
                   />
                 </button>
               )}
-              <div
+              <article
                 ref={contentRef}
                 onClick={handleThreadAnchorClick}
                 onKeyDown={handleThreadAnchorKeyDown}
@@ -983,7 +983,7 @@ const App: React.FC = () => {
                     className="font-serif text-slate-800 dark:text-zinc-100"
                   />
                 </Suspense>
-              </div>
+              </article>
               <div className="h-32"></div>
             </div>
           </div>
@@ -1026,7 +1026,7 @@ const App: React.FC = () => {
               onSaveQuote={handleSaveQuote}
             />
           )}
-        </div>
+        </main>
 
         {/* Right Pane: Thread Sidebar */}
         <div
