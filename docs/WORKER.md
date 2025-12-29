@@ -409,7 +409,7 @@ CREATE TABLE parse_cache (
 - 21 chars for session/thread/message IDs
 - 32 chars for owner tokens
 
-**Algorithm**: Custom implementation using URL-safe characters (A-Za-z0-9_-)
+**Algorithm**: Custom implementation using URL-safe characters (A-Za-z0-9\_-)
 
 ### `response.ts`
 

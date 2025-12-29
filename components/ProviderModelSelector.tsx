@@ -116,7 +116,9 @@ const ProviderModelSelector: React.FC<ProviderModelSelectorProps> = ({
         </button>
 
         {providerOpen && (
-          <div className={`absolute left-0 ${providerPosition === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'} z-50 min-w-[140px] py-1 bg-white dark:bg-dark-elevated border border-slate-200 dark:border-dark-border rounded-lg shadow-lg`}>
+          <div
+            className={`absolute left-0 ${providerPosition === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'} z-50 min-w-[140px] py-1 bg-white dark:bg-dark-elevated border border-slate-200 dark:border-dark-border rounded-lg shadow-lg`}
+          >
             {PROVIDERS.map(provider => (
               <button
                 key={provider.id}
@@ -125,9 +127,7 @@ const ProviderModelSelector: React.FC<ProviderModelSelectorProps> = ({
               >
                 <span className="w-4 flex justify-center">{provider.icon}</span>
                 <span className="flex-1">{provider.name}</span>
-                {settings.provider === provider.id && (
-                  <Check size={12} className="text-accent" />
-                )}
+                {settings.provider === provider.id && <Check size={12} className="text-accent" />}
               </button>
             ))}
           </div>
@@ -157,7 +157,9 @@ const ProviderModelSelector: React.FC<ProviderModelSelectorProps> = ({
         </button>
 
         {modelOpen && (
-          <div className={`absolute left-0 ${modelPosition === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'} z-50 min-w-[180px] py-1 bg-white dark:bg-dark-elevated border border-slate-200 dark:border-dark-border rounded-lg shadow-lg`}>
+          <div
+            className={`absolute left-0 ${modelPosition === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'} z-50 min-w-[180px] py-1 bg-white dark:bg-dark-elevated border border-slate-200 dark:border-dark-border rounded-lg shadow-lg`}
+          >
             {availableModels.map(modelId => (
               <button
                 key={modelId}
@@ -165,9 +167,7 @@ const ProviderModelSelector: React.FC<ProviderModelSelectorProps> = ({
                 className="w-full flex items-center justify-between px-3 py-2 text-xs text-left hover:bg-slate-100 dark:hover:bg-dark-border text-slate-700 dark:text-zinc-300 transition-colors"
               >
                 <span>{formatModelName(modelId)}</span>
-                {settings.modelId === modelId && (
-                  <Check size={12} className="text-accent" />
-                )}
+                {settings.modelId === modelId && <Check size={12} className="text-accent" />}
               </button>
             ))}
           </div>

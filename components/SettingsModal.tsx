@@ -135,8 +135,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   }
 
   const fetchModels = async () => {
-    const ollamaNoKeyNeeded =
-      settings.provider === 'ollama' && !isOllamaCloud(settings.baseUrl)
+    const ollamaNoKeyNeeded = settings.provider === 'ollama' && !isOllamaCloud(settings.baseUrl)
     if (!settings.apiKey && !ollamaNoKeyNeeded) {
       return
     }
@@ -431,7 +430,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 value={settings.baseUrl || ''}
                 onChange={e => setSettings({ ...settings, baseUrl: e.target.value })}
                 placeholder={
-                  settings.provider === 'ollama' ? getDefaultOllamaUrl() : 'https://api.openai.com/v1'
+                  settings.provider === 'ollama'
+                    ? getDefaultOllamaUrl()
+                    : 'https://api.openai.com/v1'
                 }
                 className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
               />

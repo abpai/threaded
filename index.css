@@ -1,11 +1,11 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 @config "./tailwind.config.js";
 
 body {
-  font-family: "Inter", sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 .font-serif {
-  font-family: "Merriweather", serif;
+  font-family: 'Merriweather', serif;
 }
 
 /* Custom scrollbar */
@@ -44,7 +44,7 @@ body {
 .markdown-content h1,
 .markdown-content h2,
 .markdown-content h3 {
-  font-family: "Merriweather", serif;
+  font-family: 'Merriweather', serif;
   color: #1e293b;
   margin-top: 2em;
   margin-bottom: 0.75em;
@@ -177,7 +177,7 @@ body {
   font-size: 0.875rem;
   line-height: 1.5;
   margin-bottom: 0.75em;
-  font-family: "Inter", sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 .markdown-chat .markdown-content p:last-child {
   margin-bottom: 0;
@@ -185,7 +185,7 @@ body {
 .markdown-chat .markdown-content h1,
 .markdown-chat .markdown-content h2,
 .markdown-chat .markdown-content h3 {
-  font-family: "Inter", sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 0.875rem;
   font-weight: 600;
   margin-top: 1em;
@@ -242,13 +242,13 @@ body {
   outline: 2px solid rgba(34, 211, 238, 0.9);
   outline-offset: 2px;
 }
-.thread-anchor[data-thread-active="true"] {
+.thread-anchor[data-thread-active='true'] {
   background: rgba(34, 211, 238, 0.18);
 }
 .dark .thread-anchor:hover {
   background: rgba(34, 211, 238, 0.16);
 }
-.dark .thread-anchor[data-thread-active="true"] {
+.dark .thread-anchor[data-thread-active='true'] {
   background: rgba(34, 211, 238, 0.22);
 }
 
