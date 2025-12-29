@@ -340,7 +340,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span className="block mt-1 text-amber-600 dark:text-amber-400">
                   {isOllamaCloud(settings.baseUrl)
                     ? 'Cloud: Create API key at ollama.com/settings/keys'
-                    : 'Local: Enable CORS with OLLAMA_ORIGINS=* ollama serve'}
+                    : 'Dev: OLLAMA_ORIGINS=* ollama serve · Prod: requires proxy (e.g., ngrok)'}
                 </span>
               )}
             </p>

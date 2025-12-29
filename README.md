@@ -70,8 +70,21 @@ Configure your provider in the Settings modal:
 
 > API keys are stored only in your browser's `localStorage`.
 
-> **Ollama:** Uses [Ollama Cloud](https://ollama.com/cloud) when deployed, `localhost:11434` in development.
-> Get your cloud API key at [ollama.com/settings/keys](https://ollama.com/settings/keys).
+### Ollama Setup
+
+**Development:** Start Ollama with CORS enabled:
+```bash
+OLLAMA_ORIGINS=* ollama serve
+```
+
+**Production:** Local Ollama requires a reverse proxy due to browser CORS restrictions. Using ngrok:
+
+1. Start Ollama with CORS: `OLLAMA_ORIGINS=* ollama serve`
+2. Expose via ngrok: `ngrok http 11434`
+3. Copy the ngrok URL (e.g., `https://abc123.ngrok-free.app`)
+4. Paste into the **Base URL** field in Threaded settings
+
+> **Ollama Cloud:** Alternatively, get an API key at [ollama.com/settings/keys](https://ollama.com/settings/keys) and leave the Base URL as default.
 
 ---
 

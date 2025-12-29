@@ -159,7 +159,7 @@ function formatMessages(
   return messages
 }
 
-function parseError(error: unknown): AIError {
+function parseError(error: unknown, provider?: string): AIError {
   const errorMessage = error instanceof Error ? error.message : String(error)
   const lowerMessage = errorMessage.toLowerCase()
 
@@ -212,11 +212,15 @@ function parseError(error: unknown): AIError {
     lowerMessage.includes('connection') ||
     lowerMessage.includes('cors')
   ) {
+    const ollamaHint =
+      provider === 'ollama'
+        ? ' For local Ollama in production, use a reverse proxy (e.g., ngrok). See README.'
+        : ''
     return {
       type: 'network',
-      message: 'Network error. Check your connection and try again.',
+      message: `Network error. Check your connection and try again.${ollamaHint}`,
       canRetry: true,
-      shouldOpenSettings: false,
+      shouldOpenSettings: provider === 'ollama',
     }
   }
 
@@ -290,7 +294,7 @@ export async function generateThreadResponse(
     return { parts, text: result.text }
   } catch (error) {
     console.error('AI Service Error:', error)
-    throw new AIServiceError(parseError(error))
+    throw new AIServiceError(parseError(error, settings.provider))
   }
 }
 
