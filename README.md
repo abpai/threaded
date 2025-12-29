@@ -3,7 +3,7 @@
 
 # Threaded
 
-**A contextual AI reader for deep document exploration**
+**A contextual AI powered markdown reader with threads for deep document exploration and AI-assisted learning.**
 
 [![React](https://img.shields.io/badge/React-19-blue)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue)](https://www.typescriptlang.org/)
@@ -31,12 +31,16 @@
 
 ## What is Threaded?
 
-Threaded is a reading interface designed for deep document analysis. It replaces linear chat interfaces with focused, side-by-side conversations anchored directly to the text.
+Standard chat interfaces force you into a single, linear timeline. But real thinking isn't linear—it requires exploring tangents, comparing options, and questioning specific details without losing the bigger picture.
 
-- **Contextual Threads**: Highlight any text to start a discussion or get an explanation.
-- **Deep Exploration**: Branch into multiple side-conversations without losing your place in the original document.
-- **AI Agnostic**: Support for Gemini, OpenAI, Anthropic, and local models via Ollama.
-- **Privacy First**: All API keys and session metadata are stored in your browser.
+Often, samples from an LLM open up more questions which fit in awkwardly with a linear timeline. I find being forced to follow a linear thought path very frustrating so I built Threaded.
+
+Threaded transforms documents into explorable workspaces where you can:
+
+- **Think in branches**: Highlight any text to spin off a focused discussion about that specific idea.
+- **Multitask your curiosity**: Keep multiple lines of inquiry open simultaneously, side-by-side with your reading.
+- **Bring your own AI**: Use Gemini, OpenAI, Claude, or local Ollama models.
+- **Stay private**: AI processing happens in your browser with your keys. Sessions are stored on the server to enable instant sharing, but are accessible *only* via their unguessable 21-character IDs. You can also self-host the entire platform on Cloudflare for complete control.
 
 ---
 
@@ -182,6 +186,26 @@ Threaded is built as a Cloudflare Worker that serves both a React SPA and a JSON
 - `GET/DELETE /api/sessions/:id`: Manage session data.
 - `POST /api/sessions/:id/threads`: Anchor new conversations.
 - `POST /api/sessions/:id/fork`: Clone a session.
+
+---
+
+## Screenshots
+
+### Reading View
+
+![Reading View](public/guide-reading-view.jpg)
+
+### Contextual Tooltip
+
+![Selection Tooltip](public/guide-selection-tooltip.jpg)
+
+### Thread Panel
+
+![Thread Panel](public/guide-thread-panel.jpg)
+
+### Settings
+
+![Settings](public/guide-settings.jpg)
 
 ---
 

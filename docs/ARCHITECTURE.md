@@ -287,7 +287,7 @@ parse_cache
 
 ### Authorization
 
-- Read operations: Public (no authentication)
+- Read operations: Public (no authentication) - rely on unguessable session IDs
 - Write operations: Owner token required
 - Fork operations: Public (anyone can fork)
 
@@ -326,7 +326,7 @@ wrangler d1 execute threaded-db --file=migrations/0002_parse_cache.sql
 ## Documentation
 
 - **[UI Architecture](./UI.md)** - React SPA structure, hooks, components, state management
-- **[Worker Architecture](./worker-architecture.md)** - Cloudflare Worker routes, authentication, database
+- **[Worker Architecture](./WORKER.md)** - Cloudflare Worker routes, authentication, database
 - **[CLI Architecture](./CLI.md)** - Node.js CLI tool for file opening
 
 ## Project Structure
