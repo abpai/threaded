@@ -34,7 +34,7 @@ import { useSettings } from './hooks/useSettings'
 import { useQuotes } from './hooks/useQuotes'
 import { useThreadManager } from './hooks/useThreadManager'
 import { useTextSelection } from './hooks/useTextSelection'
-import { useAiStreaming } from './hooks/useAiStreaming'
+import { useAiRequest } from './hooks/useAiRequest'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { generateId } from './lib/id'
 import {
@@ -54,7 +54,7 @@ import {
   setCurrentSessionId,
   extractTitle,
 } from './services/sessionHistory'
-import { generateSessionSummary, streamThreadResponse } from './services/aiService'
+import { generateSessionSummary } from './services/aiService'
 import { Thread, ViewState, SourceMetadata, SessionMeta, Message } from './types'
 
 const SESSION_ID_PATTERN = /^\/([a-zA-Z0-9_-]{10,})$/
@@ -105,11 +105,7 @@ const App: React.FC = () => {
     contentRef,
     viewState === ViewState.READING
   )
-  const { isLoading: isAiLoading, streamResponse } = useAiStreaming(
-    settings,
-    threadManager,
-    session
-  )
+  const { isLoading: isAiLoading, sendRequest } = useAiRequest(settings, threadManager, session)
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -564,7 +560,7 @@ const App: React.FC = () => {
       }
     }
 
-    await streamResponse({
+    await sendRequest({
       threadId: apiThreadId,
       context: selection.text,
       markdownContent,
@@ -633,7 +629,7 @@ const App: React.FC = () => {
       }
     }
 
-    await streamResponse({
+    await sendRequest({
       threadId: apiThreadId,
       context: 'Entire Document',
       markdownContent,
@@ -664,7 +660,7 @@ const App: React.FC = () => {
       }
     }
 
-    await streamResponse({
+    await sendRequest({
       threadId: threadManager.activeThreadId,
       context: threadManager.activeThread.context,
       markdownContent,
@@ -698,7 +694,7 @@ const App: React.FC = () => {
     }
 
     if (isUserMessage) {
-      await streamResponse({
+      await sendRequest({
         threadId,
         context: thread.context,
         markdownContent,
@@ -735,39 +731,25 @@ const App: React.FC = () => {
     if (lastUserMessageIndex < 0 || messages[lastUserMessageIndex].role !== 'user') return
 
     const lastUserMessage = messages[lastUserMessageIndex].text
+    const lastUserMessageId = messages[lastUserMessageIndex].id
 
-    threadManager.replaceLastMessage(threadManager.activeThreadId, {
-      id: generateId(),
-      role: 'assistant',
-      parts: [],
-      text: '',
-      timestamp: Date.now(),
-    })
+    // Remove the last assistant message by truncating after the last user message
+    threadManager.truncateThreadAfter(threadManager.activeThreadId, lastUserMessageId)
 
-    let fullResponse = ''
-    try {
-      for await (const chunk of streamThreadResponse(
-        currentThread.context,
-        markdownContent,
-        messages.slice(0, lastUserMessageIndex + 1),
-        lastUserMessage,
-        settings,
-        'discuss'
-      )) {
-        fullResponse += chunk
-        threadManager.appendToLastMessage(threadManager.activeThreadId!, chunk)
-      }
-
-      if (sessionId && fullResponse) {
-        await session.addMessage(threadManager.activeThreadId!, 'assistant', fullResponse)
-      }
-    } catch (error) {
-      const aiError = error as { message?: string }
-      threadManager.updateLastMessage(
-        threadManager.activeThreadId!,
-        `Error: ${aiError.message || 'An error occurred'}`
-      )
+    // Truncate on server if owner
+    if (sessionId && session.isOwner) {
+      await session.truncateThread(threadManager.activeThreadId, lastUserMessageId)
     }
+
+    // Generate new response
+    await sendRequest({
+      threadId: threadManager.activeThreadId,
+      context: currentThread.context,
+      markdownContent,
+      messages: messages.slice(0, lastUserMessageIndex + 1),
+      userMessage: lastUserMessage,
+      mode: 'discuss',
+    })
   }
 
   // --- Render ---
