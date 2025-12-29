@@ -166,7 +166,7 @@ Threaded is built as a Cloudflare Worker that serves both a React SPA and a JSON
 ├── components/              # UI components (ThreadPanel, Tooltip, etc.)
 ├── docs/                    # Architecture documentation
 ├── examples/                # Example markdown files
-├── hooks/                   # React hooks (useSession, useAiStreaming)
+├── hooks/                   # React hooks (useSession, useAiRequest)
 ├── lib/                     # Utilities (API client, formatters)
 ├── migrations/              # D1 database schema
 ├── services/                # AI service & content parser
