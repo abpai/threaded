@@ -1,5 +1,5 @@
+import { AlertCircle, CheckCircle, ExternalLink, Globe, Loader2, Search } from 'lucide-react'
 import React from 'react'
-import { Search, Globe, Loader2, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react'
 import { ToolInvocationPart } from '../types'
 
 interface ToolInvocationRendererProps {

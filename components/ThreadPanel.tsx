@@ -1,20 +1,20 @@
-import React, { useRef, useEffect, useState, lazy, Suspense } from 'react'
 import {
-  Send,
-  X,
-  Bot,
-  User,
-  Sparkles,
-  ChevronLeft,
-  Trash2,
-  RefreshCw,
   AlertCircle,
-  Settings,
-  Pencil,
+  Bot,
   Check,
+  ChevronLeft,
   Copy,
+  Pencil,
+  RefreshCw,
+  Send,
+  Settings,
+  Sparkles,
+  Trash2,
+  User,
+  X,
 } from 'lucide-react'
-import { Thread, MessagePart } from '../types'
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { MessagePart, Thread } from '../types'
 import ToolInvocationRenderer from './ToolInvocationRenderer'
 
 const MarkdownRenderer = lazy(() => import('./MarkdownRenderer'))
@@ -442,19 +442,23 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
             <div className="w-8 h-8 rounded-full bg-cyan-100 dark:bg-accent-glow text-cyan-600 dark:text-accent flex items-center justify-center shrink-0 animate-pulse">
               <Sparkles size={16} />
             </div>
-            <div className="bg-white dark:bg-dark-elevated border border-slate-100 dark:border-dark-border p-3 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-1">
-              <div
-                className="w-2 h-2 bg-accent rounded-full animate-bounce"
-                style={{ animationDelay: '0ms' }}
-              ></div>
-              <div
-                className="w-2 h-2 bg-accent rounded-full animate-bounce"
-                style={{ animationDelay: '150ms' }}
-              ></div>
-              <div
-                className="w-2 h-2 bg-accent rounded-full animate-bounce"
-                style={{ animationDelay: '300ms' }}
-              ></div>
+            <div className="bg-white dark:bg-dark-elevated border border-slate-100 dark:border-dark-border p-3 rounded-2xl rounded-tl-none shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <div
+                    className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce"
+                    style={{ animationDelay: '0ms' }}
+                  />
+                  <div
+                    className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce"
+                    style={{ animationDelay: '150ms' }}
+                  />
+                  <div
+                    className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce"
+                    style={{ animationDelay: '300ms' }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         )}

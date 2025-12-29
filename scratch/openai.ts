@@ -1,12 +1,7 @@
 import fs from 'node:fs/promises'
 import process from 'node:process'
 import * as api from '../lib/api'
-import {
-  streamThreadResponseWithParts,
-  convertUIMessageParts,
-  generateSessionSummary,
-  ThreadMode,
-} from '../services/aiService'
+import { generateThreadResponse, generateSessionSummary, ThreadMode } from '../services/aiService'
 import { getSummaryPrompt, getSystemPrompt } from '../services/prompts'
 import { AppSettings, Message, MessagePart, getTextFromParts } from '../types'
 
@@ -159,19 +154,97 @@ const loadFile = async (filepath: string) => {
   return buffer.toString()
 }
 
-const renderToolParts = (parts: MessagePart[], seen: Map<string, string>) => {
+// Tool display metadata (mirrors ToolInvocationRenderer.tsx)
+const toolDisplayNames: Record<string, string> = {
+  web_search: 'Web Search',
+  google_search: 'Google Search',
+}
+
+interface SearchResult {
+  title?: string
+  url?: string
+  snippet?: string
+  description?: string
+}
+
+interface SearchToolResult {
+  results?: SearchResult[]
+  sources?: SearchResult[]
+  content?: string
+  error?: boolean | string
+  message?: string
+}
+
+const getToolDisplayName = (toolName: string): string =>
+  toolDisplayNames[toolName] || toolName
+
+const getErrorMessage = (result: unknown): string | null => {
+  if (!result || typeof result !== 'object') return null
+  const r = result as SearchToolResult
+  if (r.error === true) return r.message || 'Tool failed'
+  if (typeof r.error === 'string') return r.error
+  return null
+}
+
+const formatSearchResults = (result: unknown): string | null => {
+  if (!result || typeof result !== 'object') return null
+  const r = result as SearchToolResult
+  const items = r.results || r.sources || []
+  if (items.length === 0) {
+    if (r.content) return `  Content: ${r.content}`
+    return null
+  }
+  const lines = ['  Results:']
+  items.slice(0, 5).forEach((item, idx) => {
+    lines.push(`    ${idx + 1}. ${item.title || 'Untitled'}`)
+    if (item.url) lines.push(`       ${item.url}`)
+    if (item.snippet || item.description) {
+      const text = (item.snippet || item.description || '').slice(0, 120)
+      lines.push(`       ${text}${text.length >= 120 ? '...' : ''}`)
+    }
+  })
+  return lines.join('\n')
+}
+
+const renderToolParts = (parts: MessagePart[]) => {
   for (const part of parts) {
     if (part.type !== 'tool-invocation') continue
-    const key = part.toolInvocationId
-    const state = `${part.toolName}:${part.state}:${part.result ? 'result' : 'pending'}`
-    if (seen.get(key) === state) continue
-    seen.set(key, state)
-    const label = `[tool:${part.toolName}] ${part.state}`
+
+    const displayName = getToolDisplayName(part.toolName)
+    const stateIcon =
+      part.state === 'result' ? '✓' : part.state === 'call' ? '→' : '…'
+
+    console.log(`\n━━━ ${displayName} ━━━`)
+
+    // Show args (especially query for search tools)
+    if (part.args && typeof part.args === 'object') {
+      const args = part.args as Record<string, unknown>
+      if (args.query) {
+        console.log(`  Query: "${args.query}"`)
+      } else {
+        console.log(`  Args: ${JSON.stringify(args)}`)
+      }
+    }
+
+    console.log(`  Status: ${stateIcon} ${part.state}`)
+
     if (part.state === 'result' && part.result !== undefined) {
-      const result = typeof part.result === 'string' ? part.result : JSON.stringify(part.result)
-      console.log(`${label}\n${result}`)
-    } else {
-      console.log(label)
+      const errorMsg = getErrorMessage(part.result)
+      if (errorMsg) {
+        console.log(`  Error: ${errorMsg}`)
+      } else {
+        const formatted = formatSearchResults(part.result)
+        if (formatted) {
+          console.log(formatted)
+        } else {
+          // Fallback: show raw result
+          const raw =
+            typeof part.result === 'string'
+              ? part.result
+              : JSON.stringify(part.result, null, 2)
+          console.log(`  Result: ${raw.slice(0, 500)}${raw.length > 500 ? '...' : ''}`)
+        }
+      }
     }
   }
 }
@@ -204,11 +277,6 @@ const main = async () => {
     document = ''
   }
 
-  if (!document.trim()) {
-    console.error('No document content provided. Use --file or --session.')
-    process.exit(1)
-  }
-
   if (options.showPrompt) {
     const prompt =
       options.mode === 'summary'
@@ -234,28 +302,19 @@ const main = async () => {
     process.exit(1)
   }
 
-  let lastText = ''
-  const seenToolStates = new Map<string, string>()
-  for await (const uiMessage of streamThreadResponseWithParts(
+  const { parts, text } = await generateThreadResponse(
     context,
     document,
     history,
     message,
     settings,
     options.mode
-  )) {
-    const parts = convertUIMessageParts(uiMessage)
-    const nextText = getTextFromParts(parts)
-    if (nextText.startsWith(lastText)) {
-      process.stdout.write(nextText.slice(lastText.length))
-    } else {
-      process.stdout.write(`\n${nextText}`)
-    }
-    lastText = nextText
+  )
 
-    if (options.debugTools) {
-      renderToolParts(parts, seenToolStates)
-    }
+  console.log(text)
+
+  if (options.debugTools) {
+    renderToolParts(parts)
   }
 }
 

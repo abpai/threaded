@@ -153,26 +153,28 @@ activeThreadId: string | null  // Currently selected thread
 activeThread: Thread | null  // Computed from threads + activeThreadId
 ```
 
-### `useAiStreaming.ts` (100 lines)
-**Purpose**: Handles AI response streaming
+### `useAiRequest.ts` (~100 lines)
+**Purpose**: Handles AI request/response lifecycle
 
 **Features**:
-- Streams responses from AI providers (OpenAI, Anthropic, Google, Ollama)
-- Supports tool invocations (web search) via UIMessage format
-- Converts UIMessage format to app's Message format
-- Handles errors and displays user-friendly messages
-- Saves messages to API after streaming completes
+- Sends requests to AI providers (OpenAI, Anthropic, Google, Ollama)
+- Supports tool invocations (web search) via MessagePart format
+- Handles abort signals for request cancellation
+- Displays user-friendly error messages
+- Saves messages to API after response completes
 
 **Workflow**:
-1. Creates placeholder message with empty parts
-2. Streams `UIMessage` objects from `aiService.streamThreadResponseWithParts()`
-3. Converts each UIMessage to `MessagePart[]` via `convertUIMessageParts()`
-4. Updates message parts in real-time via `threadManager.updateMessageParts()`
-5. After streaming, saves to API via `session.addMessage()`
-6. Updates message ID if API returns different ID
+1. Aborts any previous in-flight request
+2. Calls `aiService.generateThreadResponse()` with thread context
+3. Receives complete response with text and parts (including tool invocations)
+4. Creates message with response content
+5. Adds message to thread via `threadManager.addMessageToThread()`
+6. Saves to API via `session.addMessage()`
+7. Updates message ID if API returns different ID
 
 **Error Handling**:
-- Catches `AIError` objects
+- Catches `AIServiceError` objects
+- Suppresses errors for user-initiated aborts
 - Displays error message in message parts
 - Sets loading state to false
 
@@ -397,23 +399,20 @@ SessionMeta[] = [{
    - Updates thread anchor ID in DOM
 6. For "explain" action, immediately streams AI response
 
-### Streaming AI Response
-1. `useAiStreaming.streamResponse()` called with thread context
-2. Creates placeholder message with empty parts
-3. `aiService.streamThreadResponseWithParts()`:
+### Generating AI Response
+1. `useAiRequest.sendRequest()` called with thread context
+2. `aiService.generateThreadResponse()`:
    - Creates model instance via `getModel(settings)`
    - Gets system prompt via `getSystemPrompt()`
    - Formats message history
    - Gets provider tools (if available)
-   - Calls `streamText()` from AI SDK
-   - Yields `UIMessage` objects via `readUIMessageStream()`
-4. Each `UIMessage` converted to `MessagePart[]` via `convertUIMessageParts()`
-5. `threadManager.updateMessageParts()` updates local state
-6. UI updates reactively via React state
-7. After streaming completes:
-   - Extracts full text from parts via `getTextFromParts()`
-   - Saves to API via `session.addMessage()` (handles fork if needed)
-   - Updates message ID if API returns different ID
+   - Calls `generateText()` from AI SDK with `stopWhen: stepCountIs(3)`
+   - Processes all steps to extract tool invocations and text
+3. Response received with text and MessagePart array
+4. Message created and added to thread via `threadManager.addMessageToThread()`
+5. UI updates reactively via React state
+6. Saves to API via `session.addMessage()` (handles fork if needed)
+7. Updates message ID if API returns different ID
 
 ### Forking Shared Sessions
 1. User opens shared session URL (no owner token in localStorage)

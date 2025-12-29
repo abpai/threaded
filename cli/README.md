@@ -5,7 +5,7 @@ CLI tool to open local files in [Threaded](https://threaded.andypai.me) - a cont
 ## Installation
 
 ```bash
-npm install -g @andypai/threaded
+pnpm install -g @andypai/threaded
 ```
 
 ## Usage

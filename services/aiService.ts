@@ -1,4 +1,4 @@
-import { streamText, readUIMessageStream, UIMessage, stepCountIs } from 'ai'
+import { generateText, stepCountIs } from 'ai'
 import { createOpenAI, openai } from '@ai-sdk/openai'
 import { createAnthropic, anthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI, google } from '@ai-sdk/google'
@@ -57,42 +57,17 @@ function getModel(settings: AppSettings) {
   }
 }
 
-// Get provider-defined tools (web search) when available
 function getProviderTools(settings: AppSettings): Record<string, unknown> | undefined {
   switch (settings.provider) {
     case 'anthropic':
-      // Anthropic web search tool - requires enabling in Anthropic Console
       return { web_search: anthropic.tools.webSearch_20250305({ maxUses: 3 }) }
     case 'google':
-      // Google Search grounding for Gemini
       return { google_search: google.tools.googleSearch({}) }
     case 'openai':
-      // OpenAI web search tool
       return { web_search: openai.tools.webSearch() }
     default:
-      // Ollama doesn't support provider tools
       return undefined
   }
-}
-
-// Type guard for tool invocation parts
-interface ToolPart {
-  type: string
-  toolCallId: string
-  state: string
-  input?: unknown
-  output?: unknown
-}
-
-function isToolPart(part: unknown): part is ToolPart {
-  return (
-    typeof part === 'object' &&
-    part !== null &&
-    'toolCallId' in part &&
-    'type' in part &&
-    'state' in part &&
-    typeof (part as ToolPart).toolCallId === 'string'
-  )
 }
 
 const MAX_TOOL_RESULT_CHARS = 2000
@@ -104,19 +79,6 @@ function serializeToolResult(result: unknown): string {
     return JSON.stringify(result, null, 2)
   } catch {
     return String(result)
-  }
-}
-
-function normalizeToolError(output: unknown): unknown {
-  if (output && typeof output === 'object' && 'error' in output) {
-    return output
-  }
-  if (output instanceof Error) {
-    return { error: true, message: output.message }
-  }
-  return {
-    error: true,
-    message: typeof output === 'string' ? output : 'Tool invocation failed',
   }
 }
 
@@ -153,50 +115,6 @@ function getMessageContentForModel(msg: Message): string {
     .join('')
 
   return `${text}${toolText}`.trim()
-}
-
-// Convert UIMessage parts to our MessagePart format
-export function convertUIMessageParts(uiMessage: UIMessage): MessagePart[] {
-  const parts: MessagePart[] = []
-
-  for (const part of uiMessage.parts) {
-    if (part.type === 'text') {
-      parts.push({
-        type: 'text',
-        text: part.text,
-      })
-    } else if (isToolPart(part)) {
-      // Tool invocation parts have type like "tool-web_search"
-      const toolName = part.type.replace('tool-', '')
-      const toolCallId = part.toolCallId
-
-      // Map AI SDK states to our simplified states
-      let state: 'partial-call' | 'call' | 'result' = 'partial-call'
-      if (part.state === 'input-available') {
-        state = 'call'
-      } else if (part.state === 'output-available' || part.state === 'output-error') {
-        state = 'result'
-      }
-
-      parts.push({
-        type: 'tool-invocation',
-        toolInvocationId: toolCallId,
-        toolName,
-        args: (part.state === 'input-available' || part.state === 'input-streaming'
-          ? part.input
-          : {}) as Record<string, unknown>,
-        state,
-        result:
-          part.state === 'output-available'
-            ? part.output
-            : part.state === 'output-error'
-              ? normalizeToolError(part.output)
-              : undefined,
-      })
-    }
-  }
-
-  return parts
 }
 
 function formatMessages(
@@ -291,8 +209,7 @@ function parseError(error: unknown): AIError {
   }
 }
 
-// New: Stream with UIMessage format for tool support
-export async function* streamThreadResponseWithParts(
+export async function generateThreadResponse(
   context: string,
   fullDocument: string,
   history: Message[],
@@ -300,7 +217,7 @@ export async function* streamThreadResponseWithParts(
   settings: AppSettings,
   mode: ThreadMode = 'discuss',
   abortSignal?: AbortSignal
-): AsyncGenerator<UIMessage, void, unknown> {
+): Promise<{ parts: MessagePart[]; text: string }> {
   if (!settings.apiKey && settings.provider !== 'ollama') {
     throw new AIServiceError({
       type: 'no_key',
@@ -316,62 +233,45 @@ export async function* streamThreadResponseWithParts(
     const messages = formatMessages(history, newMessage)
     const tools = getProviderTools(settings)
 
-    const result = streamText({
+    const result = await generateText({
       model,
       system: systemPrompt,
       messages,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       tools: tools as any,
-      stopWhen: tools ? stepCountIs(3) : undefined, // Allow up to 3 tool invocations when tools are available
+      stopWhen: tools ? stepCountIs(3) : undefined,
       abortSignal,
     })
 
-    for await (const uiMessage of readUIMessageStream({
-      stream: result.toUIMessageStream(),
-    })) {
-      yield uiMessage
+    const parts: MessagePart[] = []
+
+    // Extract tool results from steps
+    if (result.steps) {
+      for (const step of result.steps) {
+        if (step.toolResults) {
+          for (const toolResult of step.toolResults) {
+            parts.push({
+              type: 'tool-invocation',
+              toolInvocationId: toolResult.toolCallId,
+              toolName: toolResult.toolName,
+              args: toolResult.input as Record<string, unknown>,
+              state: 'result',
+              result: toolResult.output,
+            })
+          }
+        }
+      }
     }
+
+    // Add text content
+    if (result.text) {
+      parts.push({ type: 'text', text: result.text })
+    }
+
+    return { parts, text: result.text }
   } catch (error) {
     console.error('AI Service Error:', error)
-    throw parseError(error)
-  }
-}
-
-// Legacy: Stream plain text (for backwards compatibility)
-export async function* streamThreadResponse(
-  context: string,
-  fullDocument: string,
-  history: Message[],
-  newMessage: string,
-  settings: AppSettings,
-  mode: ThreadMode = 'discuss'
-): AsyncGenerator<string, void, unknown> {
-  if (!settings.apiKey && settings.provider !== 'ollama') {
-    throw new AIServiceError({
-      type: 'no_key',
-      message: 'Please add your API key in Settings.',
-      canRetry: false,
-      shouldOpenSettings: true,
-    })
-  }
-
-  try {
-    const model = getModel(settings)
-    const systemPrompt = getSystemPrompt(context, fullDocument, mode)
-    const messages = formatMessages(history, newMessage)
-
-    const result = streamText({
-      model,
-      system: systemPrompt,
-      messages,
-    })
-
-    for await (const chunk of result.textStream) {
-      yield chunk
-    }
-  } catch (error) {
-    console.error('AI Service Error:', error)
-    throw parseError(error)
+    throw new AIServiceError(parseError(error))
   }
 }
 
@@ -387,18 +287,13 @@ export async function generateSessionSummary(
     const model = getModel(settings)
     const systemPrompt = getSummaryPrompt(document)
 
-    const result = streamText({
+    const result = await generateText({
       model,
       system: systemPrompt,
       messages: [{ role: 'user', content: 'Summarize this document.' }],
     })
 
-    let summary = ''
-    for await (const chunk of result.textStream) {
-      summary += chunk
-    }
-
-    return summary.trim().slice(0, 80)
+    return result.text.trim().slice(0, 80)
   } catch (error) {
     console.error('Failed to generate summary:', error)
     return null

@@ -1,5 +1,5 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="public/guide-start-view.png" />
+<img width="100%" height="auto" alt="threaded-banner" src="public/guide-start-view.jpg" />
 
 # Threaded
 
@@ -84,7 +84,7 @@ Configure your provider in the Settings modal:
 Open local files directly from your terminal:
 
 ```bash
-bun install -g @andypai/threaded
+pnpm install -g @andypai/threaded
 threaded ./document.pdf
 ```
 
@@ -166,7 +166,7 @@ Threaded is built as a Cloudflare Worker that serves both a React SPA and a JSON
 ├── components/              # UI components (ThreadPanel, Tooltip, etc.)
 ├── docs/                    # Architecture documentation
 ├── examples/                # Example markdown files
-├── hooks/                   # React hooks (useSession, useAiStreaming)
+├── hooks/                   # React hooks (useSession, useAiRequest)
 ├── lib/                     # Utilities (API client, formatters)
 ├── migrations/              # D1 database schema
 ├── services/                # AI service & content parser
