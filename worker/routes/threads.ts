@@ -16,17 +16,20 @@ export async function handleAddThread(
   }
 
   try {
-    const body = (await request.json()) as { context?: unknown; snippet?: unknown }
+    const body = (await request.json()) as { context?: unknown; snippet?: unknown; type?: unknown }
     const context = validateString(body.context, LIMITS.context, 'context')
     const snippet = validateString(body.snippet, LIMITS.snippet, 'snippet')
+
+    // Validate thread type, default to 'discussion' for backward compatibility
+    const type = body.type === 'comment' ? 'comment' : 'discussion'
 
     const threadId = nanoid(21)
     const now = Date.now()
 
     await env.DB.prepare(
-      'INSERT INTO threads (id, session_id, context, snippet, created_at) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO threads (id, session_id, context, snippet, type, created_at) VALUES (?, ?, ?, ?, ?, ?)'
     )
-      .bind(threadId, sessionId, context, snippet, now)
+      .bind(threadId, sessionId, context, snippet, type, now)
       .run()
 
     // Update session updated_at

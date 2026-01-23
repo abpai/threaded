@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import * as api from '../lib/api'
+import type { ApiThreadType } from '../lib/api'
 
 // localStorage key for session ownership data
 const STORAGE_KEY = 'threaded:sessions'
@@ -68,7 +69,7 @@ export interface UseSessionResult {
   ownerToken: string | null
 
   // Actions
-  addThread: (context: string, snippet: string) => Promise<string | null>
+  addThread: (context: string, snippet: string, type?: ApiThreadType) => Promise<string | null>
   addMessage: (threadId: string, role: 'user' | 'assistant', text: string) => Promise<string | null>
   updateMessage: (threadId: string, messageId: string, text: string) => Promise<void>
   deleteThread: (threadId: string) => Promise<boolean>
@@ -158,7 +159,11 @@ export function useSession(
 
   // Add thread (handles fork for non-owners)
   const addThread = useCallback(
-    async (context: string, snippet: string): Promise<string | null> => {
+    async (
+      context: string,
+      snippet: string,
+      type: ApiThreadType = 'discussion'
+    ): Promise<string | null> => {
       if (!sessionId) return null
 
       let targetSessionId = sessionId
@@ -177,7 +182,13 @@ export function useSession(
       if (!targetOwnerToken) return null
 
       try {
-        const result = await api.addThread(targetSessionId, targetOwnerToken, context, snippet)
+        const result = await api.addThread(
+          targetSessionId,
+          targetOwnerToken,
+          context,
+          snippet,
+          type
+        )
         return result.threadId
       } catch {
         return null

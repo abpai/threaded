@@ -4,11 +4,13 @@ import {
   Check,
   ChevronLeft,
   Copy,
+  MessageSquare,
   Pencil,
   RefreshCw,
   Send,
   Settings,
   Sparkles,
+  StickyNote,
   Trash2,
   User,
   X,
@@ -250,6 +252,7 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
   }
 
   const isGeneralThread = thread.context === 'Entire Document'
+  const isComment = thread.type === 'comment'
   const lastMessage = thread.messages[thread.messages.length - 1]
   const showTypingIndicator =
     isLoading && (!lastMessage || lastMessage.role !== 'assistant' || !lastMessage.text)
@@ -266,13 +269,28 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
           >
             <ChevronLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
           </button>
-          <div>
-            <h3 className="font-semibold text-slate-800 dark:text-zinc-100 leading-tight">
-              Thread
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 truncate max-w-[200px]">
-              {isGeneralThread ? 'General Discussion' : `Re: ${thread.snippet}`}
-            </p>
+          <div className="flex items-center gap-2">
+            {isComment ? (
+              <span className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                <StickyNote size={14} />
+              </span>
+            ) : (
+              <span className="p-1.5 rounded-md bg-cyan-100 dark:bg-accent-glow text-cyan-600 dark:text-accent">
+                <MessageSquare size={14} />
+              </span>
+            )}
+            <div>
+              <h3 className="font-semibold text-slate-800 dark:text-zinc-100 leading-tight">
+                {isComment ? 'Personal Note' : 'Thread'}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 truncate max-w-[200px]">
+                {isGeneralThread
+                  ? isComment
+                    ? 'General Note'
+                    : 'General Discussion'
+                  : `Re: ${thread.snippet}`}
+              </p>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -472,15 +490,27 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
 
       {/* Input Area */}
       <div className="p-4 border-t border-slate-100 dark:border-dark-border bg-white dark:bg-dark-surface">
-        <ProviderModelSelector settings={settings} onSettingsChange={onSettingsChange} />
+        {!isComment && (
+          <ProviderModelSelector settings={settings} onSettingsChange={onSettingsChange} />
+        )}
         <form onSubmit={handleSubmit} className="relative">
           <input
             ref={inputRef}
             type="text"
             value={inputValue}
             onChange={e => setInputValue(e.target.value)}
-            placeholder={isGeneralThread ? 'Ask about the document...' : 'Ask a follow-up...'}
-            className="w-full pl-4 pr-12 py-3 bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all text-sm"
+            placeholder={
+              isComment
+                ? 'Add your thoughts...'
+                : isGeneralThread
+                  ? 'Ask about the document...'
+                  : 'Ask a follow-up...'
+            }
+            className={`w-full pl-4 pr-12 py-3 bg-slate-50 dark:bg-dark-elevated border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl focus:outline-none focus:ring-2 transition-all text-sm ${
+              isComment
+                ? 'border-amber-200 dark:border-amber-800/50 focus:ring-amber-400/20 focus:border-amber-400'
+                : 'border-slate-200 dark:border-dark-border focus:ring-accent/20 focus:border-accent'
+            }`}
           />
           <button
             type="submit"

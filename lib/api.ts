@@ -9,8 +9,11 @@ export interface ApiMessage {
   timestamp: number
 }
 
+export type ApiThreadType = 'discussion' | 'comment'
+
 export interface ApiThread {
   id: string
+  type?: ApiThreadType // Optional for backward compatibility
   context: string
   snippet: string
   createdAt: number
@@ -129,13 +132,14 @@ export async function addThread(
   sessionId: string,
   ownerToken: string,
   context: string,
-  snippet: string
+  snippet: string,
+  type: ApiThreadType = 'discussion'
 ): Promise<AddThreadResponse> {
   return withRetry(() =>
     request<AddThreadResponse>(`/api/sessions/${sessionId}/threads`, {
       method: 'POST',
       headers: { 'X-Owner-Token': ownerToken },
-      body: JSON.stringify({ context, snippet }),
+      body: JSON.stringify({ context, snippet, type }),
     })
   )
 }

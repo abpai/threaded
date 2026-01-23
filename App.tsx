@@ -55,7 +55,7 @@ import {
   extractTitle,
 } from './services/sessionHistory'
 import { generateSessionSummary } from './services/aiService'
-import { Thread, ViewState, SourceMetadata, SessionMeta, Message } from './types'
+import { Thread, ViewState, SourceMetadata, SessionMeta, Message, ThreadType } from './types'
 
 const SESSION_ID_PATTERN = /^\/([a-zA-Z0-9_-]{10,})$/
 
@@ -163,8 +163,9 @@ const App: React.FC = () => {
         const el = wrapFirstOccurrenceWithThreadAnchor(root, thread.context, thread.id)
         if (!el) continue
 
-        el.title = `Open thread: ${thread.snippet}`
-        el.setAttribute('aria-label', `Open thread: ${thread.snippet}`)
+        const labelPrefix = thread.type === 'comment' ? 'Open note' : 'Open thread'
+        el.title = `${labelPrefix}: ${thread.snippet}`
+        el.setAttribute('aria-label', `${labelPrefix}: ${thread.snippet}`)
         setThreadAnchorActive(el, thread.id === threadManager.activeThreadId)
         threadAnchorElsRef.current.set(thread.id, el)
       }
@@ -187,6 +188,7 @@ const App: React.FC = () => {
     if (sessionId && session.session && !session.isLoading) {
       const apiThreads: Thread[] = session.session.threads.map(t => ({
         id: t.id,
+        type: (t.type as ThreadType) || 'discussion', // Default to discussion for backward compat
         context: t.context,
         snippet: t.snippet,
         createdAt: t.createdAt,
@@ -334,6 +336,10 @@ const App: React.FC = () => {
   const handleExport = () => {
     let exportText = markdownContent
 
+    // Separate threads by type
+    const comments = threadManager.threads.filter(t => t.type === 'comment')
+    const discussions = threadManager.threads.filter(t => t.type !== 'comment')
+
     if (quotes.length > 0) {
       exportText += '\n\n---\n\n# Saved Quotes\n\n'
       quotes.forEach(q => {
@@ -341,13 +347,30 @@ const App: React.FC = () => {
       })
     }
 
-    if (threadManager.threads.length > 0) {
-      exportText += '\n\n---\n\n# Discussions\n\n'
-      threadManager.threads.forEach(t => {
+    // Export personal comments
+    if (comments.length > 0) {
+      exportText += '\n\n---\n\n# Personal Notes\n\n'
+      exportText += '_Notes and commentary on the article_\n\n'
+      comments.forEach(c => {
+        exportText += `## ${c.snippet}\n\n`
+        if (c.context !== 'Entire Document') {
+          exportText += `> **Context**: ${c.context}\n\n`
+        }
+        c.messages.forEach(m => {
+          exportText += `${m.text}\n\n`
+        })
+        exportText += '---\n\n'
+      })
+    }
+
+    // Export AI discussions
+    if (discussions.length > 0) {
+      exportText += '\n\n---\n\n# AI Discussions\n\n'
+      discussions.forEach(t => {
         exportText += `## Thread: ${t.snippet}\n`
         exportText += `> **Context**: ${t.context}\n\n`
         t.messages.forEach(m => {
-          exportText += `**${m.role === 'user' ? 'User' : 'AI'}**: ${m.text}\n\n`
+          exportText += `**${m.role === 'user' ? 'You' : 'AI'}**: ${m.text}\n\n`
         })
         exportText += '---\n\n'
       })
@@ -490,24 +513,31 @@ const App: React.FC = () => {
     })
   }
 
-  const createThread = async (action: 'discuss' | 'summarize') => {
+  const createThread = async (action: 'discuss' | 'summarize' | 'comment') => {
     if (!selection) return
 
     const newThreadId = Date.now().toString()
     const snippet =
       selection.text.length > 30 ? selection.text.substring(0, 30) + '...' : selection.text
 
+    // Determine thread type based on action
+    const threadType: ThreadType = action === 'comment' ? 'comment' : 'discussion'
+
     const anchorEl = contentRef.current
       ? wrapCurrentSelectionWithThreadAnchor(contentRef.current, newThreadId)
       : null
     if (anchorEl) {
-      anchorEl.title = `Open thread: ${snippet}`
-      anchorEl.setAttribute('aria-label', `Open thread: ${snippet}`)
+      anchorEl.title = action === 'comment' ? `Open note: ${snippet}` : `Open thread: ${snippet}`
+      anchorEl.setAttribute(
+        'aria-label',
+        action === 'comment' ? `Open note: ${snippet}` : `Open thread: ${snippet}`
+      )
       threadAnchorElsRef.current.set(newThreadId, anchorEl)
     }
 
     const newThread: Thread = {
       id: newThreadId,
+      type: threadType,
       context: selection.text,
       messages: [],
       createdAt: Date.now(),
@@ -522,7 +552,7 @@ const App: React.FC = () => {
     // Save to API
     let apiThreadId = newThreadId
     if (sessionId) {
-      const savedThreadId = await session.addThread(selection.text, snippet)
+      const savedThreadId = await session.addThread(selection.text, snippet, threadType)
       if (savedThreadId && savedThreadId !== newThreadId) {
         threadManager.updateThreadId(newThreadId, savedThreadId)
         apiThreadId = savedThreadId
@@ -534,6 +564,11 @@ const App: React.FC = () => {
           threadAnchorElsRef.current.set(savedThreadId, el)
         }
       }
+    }
+
+    // For comments, we're done - no AI involvement
+    if (action === 'comment') {
+      return
     }
 
     if (action === 'discuss') {
@@ -602,6 +637,7 @@ const App: React.FC = () => {
     }
     const newThread: Thread = {
       id: newThreadId,
+      type: 'discussion', // General threads are always AI discussions
       context: 'Entire Document',
       messages: [initialUserMsg],
       createdAt: Date.now(),
@@ -642,6 +678,7 @@ const App: React.FC = () => {
   const handleSendMessage = async (text: string) => {
     if (!threadManager.activeThreadId || !threadManager.activeThread) return
 
+    const thread = threadManager.activeThread
     const userMessageId = generateId()
     const userMessage: Message = {
       id: userMessageId,
@@ -660,11 +697,16 @@ const App: React.FC = () => {
       }
     }
 
+    // Skip AI for comment threads - they're personal notes without AI involvement
+    if (thread.type === 'comment') {
+      return
+    }
+
     await sendRequest({
       threadId: threadManager.activeThreadId,
-      context: threadManager.activeThread.context,
+      context: thread.context,
       markdownContent,
-      messages: [...threadManager.activeThread.messages, userMessage],
+      messages: [...thread.messages, userMessage],
       userMessage: text,
       mode: 'discuss',
     })
@@ -686,14 +728,20 @@ const App: React.FC = () => {
     ]
 
     threadManager.updateMessageToThread(threadId, messageId, newText)
-    threadManager.truncateThreadAfter(threadId, messageId)
+    const shouldTruncate = thread.type !== 'comment'
+    if (shouldTruncate) {
+      threadManager.truncateThreadAfter(threadId, messageId)
+    }
 
     if (sessionId && session.isOwner) {
       await session.updateMessage(threadId, messageId, newText)
-      await session.truncateThread(threadId, messageId)
+      if (shouldTruncate) {
+        await session.truncateThread(threadId, messageId)
+      }
     }
 
-    if (isUserMessage) {
+    // Only call AI for discussion threads, not comments
+    if (isUserMessage && thread.type !== 'comment') {
       await sendRequest({
         threadId,
         context: thread.context,
@@ -720,6 +768,10 @@ const App: React.FC = () => {
     if (!threadManager.activeThreadId || !threadManager.activeThread) return
 
     const currentThread = threadManager.activeThread
+
+    // No retry for comment threads - they have no AI responses
+    if (currentThread.type === 'comment') return
+
     if (currentThread.messages.length < 2) return
 
     const messages = currentThread.messages

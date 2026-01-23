@@ -1,10 +1,10 @@
 import React, { useState } from 'react'
-import { MessageSquarePlus, Copy, Sparkles, Check, Bookmark } from 'lucide-react'
+import { MessageSquarePlus, Copy, Sparkles, Check, Bookmark, StickyNote } from 'lucide-react'
 
 interface TooltipProps {
   rect: DOMRect
   text: string
-  onAction: (action: 'discuss' | 'summarize') => void
+  onAction: (action: 'discuss' | 'summarize' | 'comment') => void
   onSaveQuote?: () => void
 }
 
@@ -62,6 +62,17 @@ const Tooltip: React.FC<TooltipProps> = ({ rect, text, onAction, onSaveQuote }) 
       >
         <Sparkles size={16} className="text-accent" />
         <span>Explain</span>
+      </button>
+
+      <div className="w-px h-4 bg-slate-700 dark:bg-zinc-600 mx-1"></div>
+
+      <button
+        onClick={() => onAction('comment')}
+        className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 dark:hover:bg-zinc-600 rounded-md transition-colors text-sm font-medium"
+        title="Add a personal note"
+      >
+        <StickyNote size={16} className="text-amber-400" />
+        <span>Note</span>
       </button>
 
       <div className="w-px h-4 bg-slate-700 dark:bg-zinc-600 mx-1"></div>

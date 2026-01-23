@@ -1,5 +1,5 @@
 import React from 'react'
-import { X, MessageSquare, Clock, ArrowRight, FileText } from 'lucide-react'
+import { X, MessageSquare, Clock, ArrowRight, FileText, StickyNote } from 'lucide-react'
 import { Thread } from '../types'
 
 interface ThreadListProps {
@@ -58,19 +58,44 @@ const ThreadList: React.FC<ThreadListProps> = ({ threads, onSelectThread, onClos
               thread.messages.length > 0 ? thread.messages[thread.messages.length - 1] : null
 
             const isGeneral = thread.context === 'Entire Document'
+            const isComment = thread.type === 'comment'
+
+            // Determine icon and colors based on thread type
+            const getIconStyles = () => {
+              if (isComment) {
+                return {
+                  className: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+                  icon: <StickyNote size={14} />,
+                }
+              }
+              if (isGeneral) {
+                return {
+                  className: 'bg-indigo-100 text-indigo-600 dark:bg-accent-glow dark:text-accent',
+                  icon: <FileText size={14} />,
+                }
+              }
+              return {
+                className: 'bg-cyan-100 text-cyan-600 dark:bg-accent-glow dark:text-accent',
+                icon: <MessageSquare size={14} />,
+              }
+            }
+
+            const iconStyles = getIconStyles()
 
             return (
               <button
                 key={thread.id}
                 onClick={() => onSelectThread(thread.id)}
-                className="w-full text-left bg-white dark:bg-dark-surface p-4 rounded-xl border border-slate-200 dark:border-dark-border shadow-sm hover:shadow-md hover:border-cyan-300 dark:hover:border-accent transition-all group"
+                className={`w-full text-left bg-white dark:bg-dark-surface p-4 rounded-xl border shadow-sm hover:shadow-md transition-all group ${
+                  isComment
+                    ? 'border-amber-200 dark:border-amber-800/50 hover:border-amber-300 dark:hover:border-amber-700'
+                    : 'border-slate-200 dark:border-dark-border hover:border-cyan-300 dark:hover:border-accent'
+                }`}
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span
-                      className={`p-1.5 rounded-md ${isGeneral ? 'bg-indigo-100 text-indigo-600 dark:bg-accent-glow dark:text-accent' : 'bg-cyan-100 text-cyan-600 dark:bg-accent-glow dark:text-accent'}`}
-                    >
-                      {isGeneral ? <FileText size={14} /> : <MessageSquare size={14} />}
+                    <span className={`p-1.5 rounded-md ${iconStyles.className}`}>
+                      {iconStyles.icon}
                     </span>
                     <span className="font-semibold text-slate-700 dark:text-zinc-200 text-sm truncate max-w-[180px]">
                       {thread.snippet}
@@ -91,16 +116,25 @@ const ThreadList: React.FC<ThreadListProps> = ({ threads, onSelectThread, onClos
                           : 'text-slate-800 dark:text-zinc-300'
                       }
                     >
-                      {lastMessage.role === 'user' ? 'You: ' : 'AI: '}
+                      {isComment ? '' : lastMessage.role === 'user' ? 'You: ' : 'AI: '}
                       {lastMessage.text}
                     </span>
                   ) : (
-                    <span className="text-slate-400 italic">No messages yet...</span>
+                    <span className="text-slate-400 italic">
+                      {isComment ? 'No notes yet...' : 'No messages yet...'}
+                    </span>
                   )}
                 </div>
 
-                <div className="flex items-center text-cyan-600 dark:text-accent text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                  Continue discussion <ArrowRight size={12} className="ml-1" />
+                <div
+                  className={`flex items-center text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity ${
+                    isComment
+                      ? 'text-amber-600 dark:text-amber-400'
+                      : 'text-cyan-600 dark:text-accent'
+                  }`}
+                >
+                  {isComment ? 'Continue note' : 'Continue discussion'}{' '}
+                  <ArrowRight size={12} className="ml-1" />
                 </div>
               </button>
             )

@@ -41,6 +41,7 @@ The UI is a client-side application that communicates with the Cloudflare Worker
 - Handles message editing, deletion, retry
 - Shows tool invocations (web search results)
 - Input field for sending messages
+- **Comment mode**: Shows "Personal Note" header with amber styling, hides AI provider selector, messages save without AI response
 
 **`ThreadList.tsx`**
 
@@ -48,6 +49,7 @@ The UI is a client-side application that communicates with the Cloudflare Worker
 - Shows thread snippets and creation time
 - Click to open thread in `ThreadPanel`
 - Delete thread option
+- **Visual differentiation**: Comment threads show amber `StickyNote` icon; discussion threads show cyan `MessageSquare` or indigo `FileText` icon
 
 **`QuotesView.tsx`**
 
@@ -68,7 +70,9 @@ The UI is a client-side application that communicates with the Cloudflare Worker
 **`Tooltip.tsx`**
 
 - Floating action menu for text selections
-- Appears above selected text with "Discuss" and "Explain" actions
+- Appears above selected text with "Discuss", "Explain", and "Comment" actions
+- "Discuss" and "Explain" create AI-assisted threads
+- "Comment" creates personal note threads (no AI involvement)
 - "Save Quote" button
 - Positioned using `DOMRect` from selection
 
@@ -129,7 +133,7 @@ Hooks encapsulate business logic and state management, following React's hooks p
 
 **Key Functions**:
 
-- `addThread(context, snippet)` - Creates new thread (auto-forks if needed)
+- `addThread(context, snippet, type?)` - Creates new thread (auto-forks if needed), type defaults to `'discussion'`
 - `addMessage(threadId, role, text)` - Adds message to thread (auto-forks if needed)
 - `updateMessage(threadId, messageId, text)` - Updates message text (owner only)
 - `deleteThread(threadId)` - Deletes thread (owner only)
@@ -153,6 +157,7 @@ Hooks encapsulate business logic and state management, following React's hooks p
 - Handles optimistic updates for streaming responses
 - Manages message parts (text + tool invocations)
 - Computes `activeThread` from threads array and activeThreadId
+- Supports thread types (`discussion` | `comment`)
 
 **Key Functions**:
 
@@ -441,9 +446,10 @@ SessionMeta[] = [{
 
 1. User selects text → `useTextSelection` detects selection
 2. `Tooltip` appears at selection position
-3. User clicks "Discuss" or "Explain"
+3. User clicks "Discuss", "Explain", or "Comment"
 4. `createThread()` in `App.tsx`:
    - Creates local thread immediately (optimistic update)
+   - Sets `type: 'comment'` for Comment action, `'discussion'` for others
    - Generates temporary thread ID (`Date.now().toString()`)
    - Wraps selection with thread anchor via `wrapCurrentSelectionWithThreadAnchor()`
    - Adds thread to `threadManager` state
@@ -451,13 +457,16 @@ SessionMeta[] = [{
    - Clears selection
 5. Calls `session.addThread()` to persist:
    - If shared session (`!isOwner`), calls `forkAndRedirect()` first
-   - POSTs to `/api/sessions/:id/threads` with owner token
+   - POSTs to `/api/sessions/:id/threads` with owner token and thread type
    - Receives API thread ID
    - Updates local thread ID via `threadManager.updateThreadId()`
    - Updates thread anchor ID in DOM
 6. For "explain" action, immediately streams AI response
+7. For "comment" action, no AI call - user adds notes directly
 
 ### Generating AI Response
+
+**Note**: AI responses are only generated for `discussion` threads. Comment threads skip AI entirely.
 
 1. `useAiRequest.sendRequest()` called with thread context
 2. `aiService.generateThreadResponse()`:
@@ -472,6 +481,13 @@ SessionMeta[] = [{
 5. UI updates reactively via React state
 6. Saves to API via `session.addMessage()` (handles fork if needed)
 7. Updates message ID if API returns different ID
+
+### Sending Messages in Comment Threads
+
+1. User types message in ThreadPanel input
+2. `handleSendMessage()` checks if thread type is `'comment'`
+3. For comments: message saved to thread and API, no AI call
+4. For discussions: message saved, then AI response generated
 
 ### Forking Shared Sessions
 

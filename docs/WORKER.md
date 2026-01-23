@@ -78,6 +78,7 @@ The Worker is a single-file entry point (`worker/index.ts`) that routes requests
   "forkedFrom": string | null,
   "threads": [{
     "id": string,
+    "type": "discussion" | "comment",
     "context": string,
     "snippet": string,
     "createdAt": number,
@@ -125,7 +126,7 @@ The Worker is a single-file entry point (`worker/index.ts`) that routes requests
 4. Copies all threads:
    - Creates new thread IDs
    - Maintains `threadIdMap` for ID mapping
-   - Preserves `context`, `snippet`, `created_at`
+   - Preserves `context`, `snippet`, `created_at`, `type`
 5. Copies all messages for each thread:
    - Creates new message IDs
    - Preserves `role`, `text`, `created_at`
@@ -146,18 +147,25 @@ The Worker is a single-file entry point (`worker/index.ts`) that routes requests
 ```json
 {
   "context": string,  // Selected text (max 50KB)
-  "snippet": string   // Preview text (max 1KB)
+  "snippet": string,  // Preview text (max 1KB)
+  "type"?: "discussion" | "comment"  // Optional, defaults to "discussion"
 }
 ```
+
+**Thread Types**:
+
+- `discussion` (default): AI-assisted conversation threads
+- `comment`: Personal note threads without AI involvement
 
 **Process**:
 
 1. Verifies owner token
 2. Validates `context` and `snippet` (length limits)
-3. Generates `threadId` (21-char nanoid)
-4. Inserts into `threads` table
-5. Updates session `updated_at` timestamp
-6. Returns `{ threadId, createdAt }` (201)
+3. Validates `type` if provided (must be "discussion" or "comment")
+4. Generates `threadId` (21-char nanoid)
+5. Inserts into `threads` table with type
+6. Updates session `updated_at` timestamp
+7. Returns `{ threadId, createdAt }` (201)
 
 #### DELETE `/api/sessions/:id/threads/:tid`
 
@@ -350,14 +358,21 @@ CREATE TABLE threads (
   context TEXT NOT NULL,                   -- Selected text (max 50KB)
   snippet TEXT NOT NULL,                   -- Preview text (max 1KB)
   created_at INTEGER NOT NULL,             -- Unix timestamp (ms)
+  type TEXT DEFAULT 'discussion' CHECK (type IN ('discussion', 'comment')),
   FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
 ```
+
+**Thread Types**:
+
+- `discussion` (default): AI-assisted conversation threads created via "Discuss" or "Explain"
+- `comment`: Personal note threads created via "Comment" action, no AI involvement
 
 **Indexes**:
 
 - `idx_threads_session` on `session_id`
 - `idx_threads_created` on `(session_id, created_at)` - For ordering
+- `idx_threads_type` on `(session_id, type)` - For filtering by type
 
 ### `messages` Table
 
@@ -678,13 +693,20 @@ pnpm deploy:cf  # Deploys via wrangler.toml
 
 - Run manually via `wrangler d1 execute`
 - Migrations in `migrations/` directory
-- Schema versioned with timestamps (`0001_schema.sql`, `0002_parse_cache.sql`)
+- Schema versioned with timestamps
+
+**Migration Files**:
+
+- `0001_schema.sql` - Initial schema (sessions, threads, messages)
+- `0002_parse_cache.sql` - Parse cache table
+- `0002_add_thread_type.sql` - Adds `type` column to threads table
 
 **Example**:
 
 ```bash
 wrangler d1 execute threaded-db --file=migrations/0001_schema.sql
 wrangler d1 execute threaded-db --file=migrations/0002_parse_cache.sql
+wrangler d1 execute threaded-db --file=migrations/0002_add_thread_type.sql
 ```
 
 ## Configuration Files

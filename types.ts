@@ -31,8 +31,11 @@ export function getTextFromParts(parts: MessagePart[]): string {
     .join('')
 }
 
+export type ThreadType = 'discussion' | 'comment'
+
 export interface Thread {
   id: string
+  type: ThreadType // Whether this is an AI discussion or personal comment
   context: string // The selected text that started the thread
   messages: Message[]
   createdAt: number

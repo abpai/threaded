@@ -56,13 +56,14 @@ export async function handleGetSession(env: Env, sessionId: string): Promise<Res
 
     // Get threads with messages
     const threadsResult = await env.DB.prepare(
-      'SELECT id, context, snippet, created_at FROM threads WHERE session_id = ? ORDER BY created_at ASC'
+      'SELECT id, context, snippet, type, created_at FROM threads WHERE session_id = ? ORDER BY created_at ASC'
     )
       .bind(sessionId)
       .all<{
         id: string
         context: string
         snippet: string
+        type: string | null
         created_at: number
       }>()
 
@@ -95,6 +96,7 @@ export async function handleGetSession(env: Env, sessionId: string): Promise<Res
     // Assemble response
     const threadsWithMessages = threads.map(t => ({
       id: t.id,
+      type: t.type || 'discussion', // Default for backward compatibility
       context: t.context,
       snippet: t.snippet,
       createdAt: t.created_at,
@@ -158,13 +160,14 @@ export async function handleForkSession(env: Env, sessionId: string): Promise<Re
 
     // Get threads for forking
     const threads = await env.DB.prepare(
-      'SELECT id, context, snippet, created_at FROM threads WHERE session_id = ? ORDER BY created_at ASC'
+      'SELECT id, context, snippet, type, created_at FROM threads WHERE session_id = ? ORDER BY created_at ASC'
     )
       .bind(sessionId)
       .all<{
         id: string
         context: string
         snippet: string
+        type: string | null
         created_at: number
       }>()
 
@@ -210,8 +213,15 @@ export async function handleForkSession(env: Env, sessionId: string): Promise<Re
       const newThreadId = threadIdMap[thread.id]
       statements.push(
         env.DB.prepare(
-          'INSERT INTO threads (id, session_id, context, snippet, created_at) VALUES (?, ?, ?, ?, ?)'
-        ).bind(newThreadId, newSessionId, thread.context, thread.snippet, thread.created_at)
+          'INSERT INTO threads (id, session_id, context, snippet, type, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+        ).bind(
+          newThreadId,
+          newSessionId,
+          thread.context,
+          thread.snippet,
+          thread.type || 'discussion',
+          thread.created_at
+        )
       )
     }
 

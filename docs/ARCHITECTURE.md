@@ -135,12 +135,22 @@ User → StartView → Create Session API → D1 Database
 ### Creating a Thread
 
 ```plaintext
-User Selects Text → Tooltip → Create Thread (optimistic)
+User Selects Text → Tooltip → Choose Action (Discuss/Explain/Comment)
+                                    ↓
+                          Create Thread (optimistic)
                                     ↓
                           Save to API → Update ID
                                     ↓
-                          Stream AI Response → Update UI
+                          [Discussion only] Stream AI Response → Update UI
+                          [Comment] No AI call - user adds notes directly
 ```
+
+### Thread Types
+
+Threads have two types:
+
+- **Discussion** (`type: 'discussion'`): AI-assisted conversations about text. Includes "Discuss" and "Explain" actions. AI responds to user messages.
+- **Comment** (`type: 'comment'`): Personal notes without AI involvement. User adds their own thoughts/annotations. No AI provider required.
 
 ### Forking a Shared Session
 
@@ -217,6 +227,7 @@ sessions
 threads
 ├── id (PK)
 ├── session_id (FK → sessions.id)
+├── type ('discussion' | 'comment')
 ├── context
 ├── snippet
 └── created_at
@@ -321,6 +332,7 @@ pnpm deploy:cf    # Deploy Worker + assets
 wrangler d1 create threaded-db
 wrangler d1 execute threaded-db --file=migrations/0001_schema.sql
 wrangler d1 execute threaded-db --file=migrations/0002_parse_cache.sql
+wrangler d1 execute threaded-db --file=migrations/0002_add_thread_type.sql
 ```
 
 ## Documentation
