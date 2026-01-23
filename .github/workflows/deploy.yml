@@ -1,0 +1,54 @@
+name: Build and Deploy to Cloudflare Workers
+
+# Triggers the workflow on push events to the main branch
+# Also allows manual triggering from the GitHub Actions UI for testing
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-threaded-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build_and_deploy:
+    name: Build and Deploy
+    environment: production
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9 # Pin major version for consistent installs
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm" # Enable caching for pnpm dependencies
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile # Use --frozen-lockfile for CI consistency
+
+      - name: Build Vite App
+        env:
+          NODE_ENV: production
+        run: pnpm run build
+
+      - name: Deploy to Cloudflare Workers
+        if: github.repository_owner == 'andypai'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          wranglerVersion: "4.54.0"
