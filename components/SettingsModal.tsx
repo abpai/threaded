@@ -359,7 +359,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   setIsModelListOpen(true)
                 }}
                 onFocus={() => setIsModelListOpen(true)}
-                placeholder="e.g. gpt-5.2-chat-latest, gemini-3-flash-preview, claude-opus-4-5-20251101"
+                placeholder="e.g. gpt-5.2-chat-latest, gemini-3-flash-preview, claude-opus-4-6"
                 className="w-full bg-slate-50 dark:bg-dark-elevated border border-slate-200 dark:border-dark-border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
               />
               <button
