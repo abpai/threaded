@@ -4,7 +4,7 @@ export const DEFAULT_MODELS: Record<AiProvider, string[]> = {
   google: ['gemini-3-flash-preview', 'gemini-3-pro-preview'],
   openai: ['gpt-5.2-chat-latest', 'gpt-5-mini', 'gpt-5-nano'],
   anthropic: [
-    'claude-opus-4-5-20251101',
+    'claude-opus-4-6',
     'claude-sonnet-4-5-20250929',
     'claude-haiku-4-5-20251001',
   ],
