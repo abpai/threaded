@@ -115,7 +115,7 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
   const messageBubbleRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const scrollRafRef = useRef<number | null>(null)
   const prevIsLoadingRef = useRef(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const isNearBottom = () => {
     const el = messagesScrollRef.current
@@ -211,9 +211,34 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    submitInput()
+  }
+
+  const resetInputHeight = () => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto'
+    }
+  }
+
+  const submitInput = () => {
     if (!inputValue.trim() || isLoading) return
     onSendMessage(inputValue)
     setInputValue('')
+    resetInputHeight()
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const textarea = e.target
+    setInputValue(textarea.value)
+    textarea.style.height = 'auto'
+    textarea.style.height = `${textarea.scrollHeight}px`
+  }
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      submitInput()
+    }
   }
 
   const startEditing = (messageId: string, text: string) => {
@@ -494,11 +519,12 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
           <ProviderModelSelector settings={settings} onSettingsChange={onSettingsChange} />
         )}
         <form onSubmit={handleSubmit} className="relative">
-          <input
+          <textarea
             ref={inputRef}
-            type="text"
+            rows={1}
             value={inputValue}
-            onChange={e => setInputValue(e.target.value)}
+            onChange={handleInputChange}
+            onKeyDown={handleInputKeyDown}
             placeholder={
               isComment
                 ? 'Add your thoughts...'
@@ -506,7 +532,7 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
                   ? 'Ask about the document...'
                   : 'Ask a follow-up...'
             }
-            className={`w-full pl-4 pr-12 py-3 bg-slate-50 dark:bg-dark-elevated border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl focus:outline-none focus:ring-2 transition-all text-sm ${
+            className={`w-full pl-4 pr-12 py-3 bg-slate-50 dark:bg-dark-elevated border text-slate-900 dark:text-zinc-100 placeholder:dark:text-zinc-500 rounded-xl focus:outline-none focus:ring-2 transition-all text-sm resize-none overflow-y-auto max-h-32 ${
               isComment
                 ? 'border-amber-200 dark:border-amber-800/50 focus:ring-amber-400/20 focus:border-amber-400'
                 : 'border-slate-200 dark:border-dark-border focus:ring-accent/20 focus:border-accent'
@@ -515,7 +541,7 @@ const ThreadPanel: React.FC<ThreadPanelProps> = ({
           <button
             type="submit"
             disabled={!inputValue.trim() || isLoading}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-accent-muted text-white rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="absolute right-2 bottom-1.5 p-2 bg-accent-muted text-white rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Send size={16} />
           </button>

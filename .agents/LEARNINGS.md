@@ -14,7 +14,7 @@
 
 ## Patterns That Work
 
-- (approaches that succeeded)
+- In dense TSX components, extracting textarea/input event handlers into named functions improves readability without changing behavior.
 
 ## Patterns That Don't Work
 
