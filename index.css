@@ -96,6 +96,43 @@ body {
   list-style-type: disc;
 }
 
+.markdown-content a:not(.thread-anchor) {
+  color: #1d4ed8;
+  font-weight: 500;
+  text-decoration-line: underline;
+  text-decoration-thickness: 0.1em;
+  text-decoration-color: rgba(29, 78, 216, 0.45);
+  text-underline-offset: 0.16em;
+  transition:
+    color 0.15s ease,
+    text-decoration-color 0.15s ease;
+}
+.markdown-content a:not(.thread-anchor):visited {
+  color: #1e40af;
+}
+.markdown-content a:not(.thread-anchor):hover {
+  color: #1e3a8a;
+  text-decoration-color: currentColor;
+}
+.markdown-content a:not(.thread-anchor):focus-visible {
+  outline: 2px solid rgba(29, 78, 216, 0.3);
+  outline-offset: 3px;
+  border-radius: 0.15em;
+}
+.dark .markdown-content a:not(.thread-anchor) {
+  color: #93c5fd;
+  text-decoration-color: rgba(147, 197, 253, 0.55);
+}
+.dark .markdown-content a:not(.thread-anchor):visited {
+  color: #bfdbfe;
+}
+.dark .markdown-content a:not(.thread-anchor):hover {
+  color: #dbeafe;
+}
+.dark .markdown-content a:not(.thread-anchor):focus-visible {
+  outline-color: rgba(147, 197, 253, 0.45);
+}
+
 .markdown-content pre {
   background: #1e293b;
   color: #f8fafc;

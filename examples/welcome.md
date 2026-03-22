@@ -138,9 +138,9 @@ For Ollama users: run `OLLAMA_ORIGINS=* ollama serve` to enable browser access.
 
 ---
 
-## Dark Mode
+## Themes
 
-Your eyes will thank you. Toggle dark mode with the sun/moon icon in the header. Your preference persists across sessions.
+Threaded opens in light mode by default. Toggle dark mode with the sun/moon icon in the header if you want a lower-light reading environment. Your preference persists across sessions.
 
 ---
 

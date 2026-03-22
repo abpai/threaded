@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 
 const STORAGE_KEY = 'threaded-dark-mode'
+const LIGHT_THEME_COLOR = '#ffffff'
+const DARK_THEME_COLOR = '#09090b'
 
 export interface UseDarkModeResult {
   isDarkMode: boolean
@@ -22,6 +24,11 @@ export function useDarkMode(): UseDarkModeResult {
       document.documentElement.classList.add('dark')
     } else {
       document.documentElement.classList.remove('dark')
+    }
+
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]')
+    if (themeColorMeta) {
+      themeColorMeta.setAttribute('content', isDarkMode ? DARK_THEME_COLOR : LIGHT_THEME_COLOR)
     }
   }, [isDarkMode])
 

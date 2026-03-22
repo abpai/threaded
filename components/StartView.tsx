@@ -273,9 +273,9 @@ const StartView: React.FC<StartViewProps> = ({
                   : 'opacity-0 translate-y-2 pointer-events-none'
               }`}
             >
-              <div className="border-2 border-dashed border-slate-200 dark:border-dark-border rounded-xl p-10 text-center hover:border-emerald-300 dark:hover:border-accent-muted transition-colors h-full flex flex-col items-center justify-center">
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-100 dark:bg-dark-elevated mb-4">
-                  <Upload className="text-slate-400 dark:text-zinc-500" size={24} />
+              <div className="border-2 border-dashed border-slate-200 dark:border-dark-border rounded-xl p-5 text-center hover:border-emerald-300 dark:hover:border-accent-muted transition-colors h-full flex flex-col items-center justify-center">
+                <div className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-slate-100 dark:bg-dark-elevated mb-2">
+                  <Upload className="text-slate-400 dark:text-zinc-500" size={18} />
                 </div>
                 <p className="text-slate-600 dark:text-zinc-400 mb-1">
                   <button
