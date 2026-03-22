@@ -1,0 +1,9 @@
+{
+  "lint_command": "pnpm lint",
+  "format_command": "pnpm format:check",
+  "typecheck_command": "pnpm exec tsc --noEmit",
+  "test_command": null,
+  "screenshot_urls": ["/"],
+  "max_retries": 2,
+  "command_timeout_seconds": 120
+}
