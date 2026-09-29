@@ -13,6 +13,8 @@ pnpm install        # Install dependencies
 pnpm dev            # Start dev server on port 3000
 pnpm build          # Production build with Vite
 pnpm preview        # Preview production build
+pnpm live           # Threaded Live local server (see docs/LIVE.md)
+pnpm test:live      # Threaded Live tests (node:test)
 ```
 
 ## Environment Setup
@@ -56,6 +58,10 @@ All state is managed in `App.tsx` using React hooks:
 - Custom markdown styling in `index.html` for the reading view
 - Uses Merriweather (serif) for content and Inter (sans) for UI
 - KaTeX for math rendering, highlight.js for code blocks
+
+### Threaded Live
+
+`live/` is a local Node server (run directly with Node's type stripping, so only erasable TypeScript syntax: no enums or parameter properties; `live/tsconfig.json` enforces this). It serves `/live` (`components/live/`) and `/api/live/*` from one localhost origin. Transcript sources speak a JSONL protocol (`live/sources/protocol.ts`; `live/replay.ts` is the reference source). Side threads run through an `Executor` (`live/executors/`); `codex.ts` drives `codex app-server`. `live/meeting.ts` holds the event reducer shared by the server and the UI. See `docs/LIVE.md`.
 
 ### Path Alias
 

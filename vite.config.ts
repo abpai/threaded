@@ -19,6 +19,10 @@ export default defineConfig({
     port: resolveDevServerPort(),
     host: '0.0.0.0',
     proxy: {
+      // Threaded Live's local server (pnpm live:api); listed first so it wins over '/api'.
+      '/api/live': {
+        target: 'http://127.0.0.1:4319',
+      },
       '/api': {
         target: 'http://localhost:8787',
         changeOrigin: true,

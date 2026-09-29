@@ -1,0 +1,9 @@
+{
+  // The live server runs on Node's built-in type stripping, which only accepts erasable syntax.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["./**/*.ts"]
+}

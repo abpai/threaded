@@ -21,6 +21,7 @@
 - [Quick Start](#quick-start)
 - [Supported AI Providers](#supported-ai-providers)
 - [How to Use](#how-to-use)
+- [Threaded Live](#threaded-live-preview)
 - [CLI](#cli)
 - [Development](#development)
 - [Deployment](#deploy-to-cloudflare-workers)
@@ -61,18 +62,19 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 Configure your provider in the Settings modal:
 
-| Provider          | Default Model            | Notes                         |
-| ----------------- | ------------------------ | ----------------------------- |
-| **Google Gemini** | gemini-3-flash-preview   | Default; best cost/perf       |
-| **OpenAI**        | gpt-5.2-chat-latest      | Full support for custom bases |
-| **Anthropic**     | claude-opus-4-6          | High quality, browser-direct  |
-| **Ollama**        | qwen3:8b                 | Cloud in prod, local in dev   |
+| Provider          | Default Model          | Notes                         |
+| ----------------- | ---------------------- | ----------------------------- |
+| **Google Gemini** | gemini-3-flash-preview | Default; best cost/perf       |
+| **OpenAI**        | gpt-5.2-chat-latest    | Full support for custom bases |
+| **Anthropic**     | claude-opus-4-6        | High quality, browser-direct  |
+| **Ollama**        | qwen3:8b               | Cloud in prod, local in dev   |
 
 > API keys are stored only in your browser's `localStorage`.
 
 ### Ollama Setup
 
 **Development:** Start Ollama with CORS enabled:
+
 ```bash
 OLLAMA_ORIGINS=* ollama serve
 ```
@@ -96,6 +98,18 @@ OLLAMA_ORIGINS=* ollama serve
    - **Explain** — Get a simplified explanation immediately.
 3. **Use the floating input** at the bottom to ask questions about the entire document.
 4. **Export** the document with all conversations as markdown.
+
+---
+
+## Threaded Live (preview)
+
+A live call transcript where selecting what someone said starts a side thread: a Codex agent on your machine that researches your files, read-only, while the conversation continues. Run several at once.
+
+```bash
+pnpm live --replay live/fixtures/demo-call.txt --root .
+```
+
+See [docs/LIVE.md](docs/LIVE.md) for how it works, the transcript source protocol, and the macOS audio plan.
 
 ---
 
@@ -188,6 +202,7 @@ Threaded is built as a Cloudflare Worker that serves both a React SPA and a JSON
 ├── examples/                # Example markdown files
 ├── hooks/                   # React hooks (useSession, useAiRequest)
 ├── lib/                     # Utilities (API client, formatters)
+├── live/                    # Threaded Live local server, sources, and executors
 ├── migrations/              # D1 database schema
 ├── services/                # AI service & content parser
 └── worker/                  # Cloudflare Worker backend

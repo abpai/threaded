@@ -1,8 +1,12 @@
-import React from 'react'
+import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import './index.css'
+
+// Threaded Live is served by the local server (pnpm live); it loads only on /live.
+const LiveView = lazy(() => import('./components/live/LiveView'))
+const isLive = window.location.pathname === '/live' || window.location.pathname.startsWith('/live/')
 
 const rootElement = document.getElementById('root')
 if (!rootElement) {
@@ -13,7 +17,13 @@ const root = ReactDOM.createRoot(rootElement)
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      {isLive ? (
+        <Suspense fallback={null}>
+          <LiveView />
+        </Suspense>
+      ) : (
+        <App />
+      )}
     </ErrorBoundary>
   </React.StrictMode>
 )

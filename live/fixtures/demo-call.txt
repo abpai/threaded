@@ -1,0 +1,25 @@
+# Demo call for `pnpm live --replay`. Format: "[mm:ss] Speaker: text" (timestamps optional).
+# "You" is the local microphone; everyone else arrives on the call-audio channel.
+# The call is about this repository, so a Codex side thread rooted here can check every claim.
+
+[00:02] Marcus: Okay, I think everyone's here. So the main thing today is the enterprise pilot. Their security team sent over a questionnaire and a few of the answers depend on how sharing actually works.
+[00:14] Marcus: The big one is shared links. I told them links expire after thirty days, which I'm pretty sure is what we said on the last call.
+[00:23] You: Hmm, I don't remember us ever building expiry. Let me double check that.
+[00:28] Priya: Yeah I'm not sure either. I know the session IDs are random, they're like twenty characters or something, so nobody can guess them. But expiry, I don't know.
+[00:39] Marcus: Okay. Second question on their list is who can delete a shared session. They want to know if anyone with the link can delete it or only the person who created it.
+[00:50] Priya: There's some kind of owner token for that. I think it's stored in local storage when you create the session, and the worker checks it before a delete.
+[01:01] Marcus: Good, that's the kind of answer they want. Is that comparison done safely? Their reviewer specifically asked about timing attacks, which, honestly, I had to look up.
+[01:12] You: I think we handled that, but I want to see the actual code before we put it in writing.
+[01:18] Priya: The other thing they'll ask about is the parser. When someone pastes a URL we go through Jina, and for files it's Datalab. We cache the parsed result so we don't pay twice. I want to say the URL cache is about a day.
+[01:32] Marcus: Does the cache keep the document content? Because that's going to be a data retention question.
+[01:38] Priya: It keeps the markdown, yeah. Keyed by a hash of the content. I don't think anything ever cleans it up, but I'd have to check.
+[01:47] Marcus: Okay, so potentially two retention answers, sessions and the parse cache. Can we get those nailed down before Thursday?
+[01:54] You: Yes. I'll pull the details during the call if I can.
+[01:58] Priya: One more on their list is where API keys live. We say bring your own key, and I'm fairly confident the keys never touch our server, the browser calls the providers directly.
+[02:10] Marcus: Except Ollama? I remember something about a proxy for Ollama in production.
+[02:15] Priya: Right, for local Ollama in production you need a tunnel like ngrok because of CORS. Or you use Ollama Cloud with a key. The README has the steps.
+[02:25] Marcus: Alright. Last thing, not security. They asked if there's a way to open their internal docs from the command line, their engineers live in the terminal.
+[02:34] Priya: There's the CLI. You pass it a file, it parses PDFs and whatever, creates a session and opens the browser. It's published on npm.
+[02:43] Marcus: Great. That's a nice demo. Okay, action items: expiry answer, delete permissions and the timing question, parse cache retention, and where keys live.
+[02:55] You: Got it. I'll send answers with links to the code by tomorrow.
+[03:00] Marcus: Perfect. Thanks everyone.
